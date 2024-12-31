@@ -15,6 +15,8 @@ export interface XRPCHandler {
 }
 export interface XRPCHono {
   addMethod (method: string, handler: XRPCHandler): void
+  //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
+  method (method: string, handler: XRPCHandler): void
   createApp (): Hono
 }
 export const createXRPCHono = (lexiconsSource: LexiconDoc[]): XRPCHono => {
@@ -26,13 +28,16 @@ export const createXRPCHono = (lexiconsSource: LexiconDoc[]): XRPCHono => {
     addMethod (method: string, handler: XRPCHandler) {
       methods.set(method, handler)
     },
+    method (method: string, handler: XRPCHandler) {
+      this.addMethod(method, handler)
+    },
     createApp () {
       const app = new Hono()
 
       for (const lexicon of lexiconsSource) {
         const handler = methods.get(lexicon.id)
         if (!handler) {
-          throw new Error(`No handler for ${lexicon.id}`)
+          continue;
         }
         const def = lexicons.getDefOrThrow(lexicon.id)
         const method = def.type === 'procedure' ? 'POST' : 'GET'
