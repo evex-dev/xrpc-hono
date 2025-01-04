@@ -1,4 +1,4 @@
-just edit lexicon/index.ts  
+edit lexicon/index.ts  
 It says "DO NOT MODIFY," but never mind
 
 before  
