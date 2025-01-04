@@ -17,15 +17,9 @@ import {
 import { Readable } from 'node:stream'
 import { Buffer } from 'node:buffer'
 import type { HonoAuthVerifier, HonoXRPCHandlerConfig } from './types.ts'
-import {  } from 'hono'
 
 const kRequestLocals = Symbol('requestLocals')
 
-declare module 'hono' {
-  interface HonoRequest {
-    [kRequestLocals]?: RequestLocals
-  }
-}
 export interface XRPCHono {
   addMethod(
     method: string,
@@ -119,8 +113,8 @@ export const createXRPCHono = (
             }
             const params = c.req.query()
             lexicons.assertValidXrpcParams(lexicon.id, params)
-            const output = await hdconfig.handler({
-              auth: c.req[kRequestLocals]?.auth,
+            const output = await hdconfig.handler({ //@ts-ignore reqにkRequestLocalsはある
+              auth: (c.req[kRequestLocals] as RequestLocals)?.auth,
               params,
               input,
               req: c.req,
@@ -168,7 +162,7 @@ export const createXRPCHono = (
         )
       }
 
-      app.onError((err, c) => {
+      app.onError((err, c) => { //@ts-ignore reqにkRequestLocalsはある
         const locals: RequestLocals | undefined = c.req[kRequestLocals]
         const methodSuffix = locals ? ` method ${locals.nsid}` : ''
         const xrpcError = XRPCError.fromError(err)
@@ -210,7 +204,7 @@ type RequestLocals = {
 }
 function createLocalsMiddleware(nsid: string): Handler {
   return function (c, next) {
-    const locals: RequestLocals = { auth: undefined, nsid }
+    const locals: RequestLocals = { auth: undefined, nsid } //@ts-ignore reqにkRequestLocalsはある
     c.req[kRequestLocals] = locals
     return next()
   }
@@ -249,7 +243,7 @@ function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
     const result = await verifier({ ctx })
     if (isHandlerError(result)) {
       throw XRPCError.fromHandlerError(result)
-    }
+    } //@ts-ignore reqにkRequestLocalsはある
     const locals: RequestLocals = ctx.req[kRequestLocals]!
     locals.auth = result
     next()
