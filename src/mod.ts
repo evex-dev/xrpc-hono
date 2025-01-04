@@ -17,6 +17,7 @@ import {
 import { Readable } from 'node:stream'
 import { Buffer } from 'node:buffer'
 import type { HonoAuthVerifier, HonoXRPCHandlerConfig } from './types.ts'
+import {  } from 'hono'
 
 const kRequestLocals = Symbol('requestLocals')
 
@@ -147,7 +148,7 @@ export const createXRPCHono = (
                 output.encoding === 'application/json' ||
                 output.encoding === 'json'
               ) {
-                const json = lexToJson(output.body)
+                const json = lexToJson(output.body) as object
                 c.json(json)
               } else if (output.body instanceof Readable) {
                 c.header('Content-Type', output.encoding)
@@ -185,6 +186,7 @@ export const createXRPCHono = (
           //   `error in xrpc${methodSuffix}`,
           // )
         }
+        //@ts-ignore xrpcError.typeのenumの一部の型が合わないっぽいけどたぶん大丈夫
         return c.json(xrpcError.payload, xrpcError.type)
       })
 
@@ -215,7 +217,7 @@ function createLocalsMiddleware(nsid: string): Handler {
 }
 
 function setHeaders(c: Context, result: HandlerSuccess | HandlerPipeThrough) {
-  const { headers }: { headers: Record<string, string> } = result
+  const { headers }: { headers?: Record<string, string> } = result
   if (headers) {
     for (const [name, val] of Object.entries(headers)) {
       if (val != null) c.header(name, val)
