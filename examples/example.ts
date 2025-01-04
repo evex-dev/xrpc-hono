@@ -24,7 +24,7 @@ const lexicons: LexiconDoc[] = [
 const app = new Hono()
 
 const xrpc = createXRPCHono(lexicons)
-xrpc.addMethod('io.example.ping', async (auth, params, input, c) => {
+xrpc.addMethod('io.example.ping', async ({auth, params, input, req,res}) => { 
   return {
     encoding: 'application/json',
     body: { pong: true }
