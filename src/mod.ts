@@ -139,11 +139,11 @@ export const createXRPCHono = (
               setHeaders(c, output)
               c.status(200)
               c.header('Content-Type', output.encoding)
-              c.body(output.buffer)
+              return c.body(output.buffer)
             } else if (isHandlerError(output)) {
               throw (XRPCError.fromError(output))
             } else {
-              lexicons.assertValidXrpcOutput(lexicon.id, output)
+              lexicons.assertValidXrpcOutput(lexicon.id, output.body)
               c.status(200)
               setHeaders(c, output)
               if (
@@ -151,13 +151,13 @@ export const createXRPCHono = (
                 output.encoding === 'json'
               ) {
                 const json = lexToJson(output.body) as object
-                c.json(json)
+                return c.json(json)
               } else if (output.body instanceof Readable) {
                 c.header('Content-Type', output.encoding)
                 return c.body(readableToReadableStream(output.body), 200)
               } else {
                 c.header('Content-Type', output.encoding)
-                c.body(
+                return c.body(
                   Buffer.isBuffer(output.body)
                     ? output.body
                     : output.body instanceof Uint8Array
