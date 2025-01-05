@@ -109,10 +109,18 @@ export const createXRPCHono = (
                 throw new Error(`Unsupported encoding: ${encoding}`)
               }
               input = { encoding, body }
-              lexicons.assertValidXrpcInput(lexicon.id, input)
+              try {
+                lexicons.assertValidXrpcInput(lexicon.id, input)
+              } catch (e) {
+                throw new InvalidRequestError(String(e))
+              }
             }
             const params = c.req.query()
-            lexicons.assertValidXrpcParams(lexicon.id, params)
+            try {
+              lexicons.assertValidXrpcParams(lexicon.id, params)
+            } catch (e) {
+              throw new InvalidRequestError(String(e))
+            }
             const output = await hdconfig.handler({ //@ts-ignore reqにkRequestLocalsはある
               auth: (c.req[kRequestLocals] as RequestLocals)?.auth,
               params,
