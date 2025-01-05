@@ -26,7 +26,10 @@ export interface XRPCHono {
     configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
   ): void
   //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
-  method(method: string, configOrFn: HonoXRPCHandlerConfig | XRPCHandler): void
+  method(
+    method: string,
+    configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+  ): void
   addLexicon(doc: LexiconDoc): void
   addLexicons(docs: LexiconDoc[]): void
   createApp(): Hono
@@ -40,13 +43,19 @@ export const createXRPCHono = (
   const lexicons = new Lexicons(lexiconsSource)
 
   return {
-    addMethod(method: string, configOrFn: HonoXRPCHandlerConfig | XRPCHandler) {
+    addMethod(
+      method: string,
+      configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+    ) {
       const config = typeof configOrFn === 'function'
         ? { handler: configOrFn }
         : configOrFn
       methods.set(method, config)
     },
-    method(method: string, configOrFn: HonoXRPCHandlerConfig | XRPCHandler) {
+    method(
+      method: string,
+      configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+    ) {
       this.addMethod(method, configOrFn)
     },
     createApp() {
@@ -98,7 +107,11 @@ export const createXRPCHono = (
             if (encoding) {
               let body: unknown = undefined
               if (encoding.startsWith('application/json')) {
-                body = await c.req.json()
+                try {
+                  body = await c.req.json()
+                } catch (e) {
+                  throw new InvalidRequestError(String(e))
+                }
               } else if (
                 encoding.startsWith('application/x-www-form-urlencoded')
               ) {
@@ -106,14 +119,20 @@ export const createXRPCHono = (
               } else if (encoding.startsWith('text/')) {
                 body = await c.req.text()
               } else {
-                throw new Error(`Unsupported encoding: ${encoding}`)
+                throw new InvalidRequestError(
+                  `Unsupported encoding: ${encoding}`,
+                )
               }
               input = { encoding, body }
               try {
-                lexicons.assertValidXrpcInput(lexicon.id, input)
+                lexicons.assertValidXrpcInput(lexicon.id, body)
               } catch (e) {
                 throw new InvalidRequestError(String(e))
               }
+            } else if (def.type === 'procedure') {
+              throw new InvalidRequestError(
+                'Request encoding (Content-Type) required but not provided',
+              )
             }
             const params = c.req.query()
             try {
@@ -125,7 +144,9 @@ export const createXRPCHono = (
               auth: (c.req[kRequestLocals] as RequestLocals)?.auth,
               params,
               input,
+              /**@deprecated */
               req: c.req,
+              /**@deprecated */
               res: c.res,
             })
             if (!output) {
@@ -254,7 +275,7 @@ function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
     } //@ts-ignore reqにkRequestLocalsはある
     const locals: RequestLocals = ctx.req[kRequestLocals]!
     locals.auth = result
-    next()
+    return next()
   }
 }
 
