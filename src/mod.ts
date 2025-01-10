@@ -62,7 +62,7 @@ export const createXRPCHono = (
       const app = new Hono()
 
       // 全てのリクエストに実行するバリデーションとか
-      app.use('/xrpc:methodId', (c, next) => {
+      app.use('/xrpc/:methodId', (c, next) => {
         const methodId = c.req.param('methodId')!
         const def = lexicons.getDef(methodId)
         if (!def) {
