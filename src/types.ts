@@ -28,5 +28,5 @@ export type HonoXRPCReqContext<E extends Env> = {
   auth: HandlerAuth | undefined
   params: Params
   input: HandlerInput | undefined
-  c:Context<E>
+  c: Context<E>
 }
