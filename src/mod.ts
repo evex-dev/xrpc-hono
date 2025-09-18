@@ -1,4 +1,4 @@
-import { type Context, type Handler, Hono } from 'hono'
+import { type Context, type Env, type Handler, Hono } from 'hono'
 import { type LexiconDoc, Lexicons, lexToJson } from '@atproto/lexicon'
 import {
   type HandlerAuth,
@@ -12,40 +12,41 @@ import {
   isHandlerPipeThroughStream,
   MethodNotImplementedError,
   XRPCError,
-  type XRPCHandler,
 } from '@atproto/xrpc-server'
 import { Readable } from 'node:stream'
 import { Buffer } from 'node:buffer'
-import type { HonoAuthVerifier, HonoXRPCHandlerConfig } from './types.ts'
+import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig } from './types.ts'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import type { BlankEnv } from 'hono/types'
 
 const kRequestLocals = Symbol('requestLocals')
 
-export interface XRPCHono {
+export interface XRPCHono<E extends Env = BlankEnv> {
   addMethod(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+    configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
   ): void
   //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
   method(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+    configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
   ): void
   addLexicon(doc: LexiconDoc): void
   addLexicons(docs: LexiconDoc[]): void
-  createApp(): Hono
+  createApp(): Hono<E>
 }
 /** Options is **NOT supported** (arguments are accepted for compatibility). */
-export const createXRPCHono = (
+export const createXRPCHono = <E extends Env = BlankEnv,>(
   lexiconsSource: LexiconDoc[],
   _options?: unknown,
-): XRPCHono => {
-  const methods = new Map<string, HonoXRPCHandlerConfig>()
+): XRPCHono<E> => {
+  const methods = new Map<string, HonoXRPCHandlerConfig<E>>()
   const lexicons = new Lexicons(lexiconsSource)
 
   return {
     addMethod(
       method: string,
-      configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+      configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
     ) {
       const config = typeof configOrFn === 'function'
         ? { handler: configOrFn }
@@ -54,12 +55,12 @@ export const createXRPCHono = (
     },
     method(
       method: string,
-      configOrFn: HonoXRPCHandlerConfig | XRPCHandler,
+      configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
     ) {
       this.addMethod(method, configOrFn)
     },
     createApp() {
-      const app = new Hono()
+      const app = new Hono<E>()
 
       // 全てのリクエストに実行するバリデーションとか
       app.use('/xrpc/:methodId', (c, next) => {
@@ -144,10 +145,7 @@ export const createXRPCHono = (
               auth: (c.req[kRequestLocals] as RequestLocals)?.auth,
               params,
               input,
-              /**@deprecated */
-              req: c.req,
-              /**@deprecated */
-              res: c.res,
+              c
             })
             if (!output) {
               lexicons.assertValidXrpcOutput(lexicon.id, output)
@@ -160,7 +158,7 @@ export const createXRPCHono = (
               setHeaders(c, output)
               c.status(200)
               c.header('Content-Type', output.encoding)
-              return c.body(output.buffer)
+              return c.body(Uint8Array.from(output.buffer).buffer)
             } else if (isHandlerError(output)) {
               throw (XRPCError.fromError(output))
             } else {
@@ -209,8 +207,7 @@ export const createXRPCHono = (
           //   `error in xrpc${methodSuffix}`,
           // )
         }
-        //@ts-ignore xrpcError.typeのenumの一部の型が合わないっぽいけどたぶん大丈夫
-        return c.json(xrpcError.payload, xrpcError.type)
+        return c.json(xrpcError.payload, xrpcError.type as ContentfulStatusCode)
       })
 
       return app
@@ -232,7 +229,7 @@ type RequestLocals = {
   nsid: string
 }
 function createLocalsMiddleware(nsid: string): Handler {
-  return function (c, next) {
+  return (c, next) => {
     const locals: RequestLocals = { auth: undefined, nsid } //@ts-ignore reqにkRequestLocalsはある
     c.req[kRequestLocals] = locals
     return next()
@@ -268,7 +265,7 @@ function readableToReadableStream(nodeReadable: Readable): ReadableStream {
 }
 
 function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
-  return async function (ctx, next) {
+  return async (ctx, next) => {
     const result = await verifier({ ctx })
     if (isHandlerError(result)) {
       throw XRPCError.fromHandlerError(result)
