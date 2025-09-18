@@ -11,5 +11,6 @@
   "fmt": {
     "semiColons": false,
     "singleQuote": true
-  }
+  },
+  "nodeModulesDir": "auto"
 }
