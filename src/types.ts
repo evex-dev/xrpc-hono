@@ -1,11 +1,10 @@
 import type { Context, Env } from 'hono'
-import type {
-  AuthOutput,
-  HandlerAuth,
+import {
+  AuthResult,
   HandlerInput,
-  HandlerOutput,
+  Output,
   Params,
-} from '@atproto/xrpc-server'
+} from './xrpc-server-types.ts'
 
 export interface HonoAuthVerifierContext {
   ctx: Context
@@ -13,7 +12,7 @@ export interface HonoAuthVerifierContext {
 
 export type HonoAuthVerifier = (
   ctx: HonoAuthVerifierContext,
-) => Promise<AuthOutput> | AuthOutput
+) => Promise<AuthResult> | AuthResult
 
 export type HonoXRPCHandlerConfig<E extends Env> = {
   auth?: HonoAuthVerifier
@@ -22,10 +21,10 @@ export type HonoXRPCHandlerConfig<E extends Env> = {
 
 export type HonoXRPCHandler<E extends Env> = (
   ctx: HonoXRPCReqContext<E>,
-) => Promise<HandlerOutput> | HandlerOutput | undefined
+) => Promise<Output> | Output | undefined
 
 export type HonoXRPCReqContext<E extends Env> = {
-  auth: HandlerAuth | undefined
+  auth: AuthResult | undefined
   params: Params
   input: HandlerInput | undefined
   c: Context<E>

@@ -1,6 +1,6 @@
 import type { LexiconDoc } from '@atproto/lexicon'
-import { Hono } from "hono";
-import { createXRPCHono } from "../src/mod.ts";
+import { Hono } from 'hono'
+import { createXRPCHono } from '../src/mod.ts'
 
 const lexicons: LexiconDoc[] = [
   {
@@ -16,7 +16,7 @@ const lexicons: LexiconDoc[] = [
         output: {
           encoding: 'application/json',
         },
-      }
+      },
     },
   },
 ]
@@ -24,10 +24,10 @@ const lexicons: LexiconDoc[] = [
 const app = new Hono()
 
 const xrpc = createXRPCHono(lexicons)
-xrpc.addMethod('io.example.ping', async ({auth, params, input, req,res}) => { 
+xrpc.addMethod('io.example.ping', async ({ auth, params, input, req, res }) => {
   return {
     encoding: 'application/json',
-    body: { pong: true }
+    body: { pong: true },
   }
 })
 app.route('/', xrpc.createApp())

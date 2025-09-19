@@ -1,12 +1,14 @@
 {
   "name": "@evex/xrpc-hono",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "exports": "./src/mod.ts",
   "license": "MIT",
   "imports": {
     "@atproto/lexicon": "npm:@atproto/lexicon@^0.4.4",
-    "@atproto/xrpc-server": "npm:@atproto/xrpc-server@^0.7.4",
-    "hono": "npm:hono@^4.6.15"
+    "@atproto/xrpc": "npm:@atproto/xrpc@^0.7.5",
+    "@types/http-errors": "npm:@types/http-errors@^2.0.5",
+    "hono": "npm:hono@^4.6.15",
+    "http-errors": "npm:http-errors@^2.0.0"
   },
   "fmt": {
     "semiColons": false,

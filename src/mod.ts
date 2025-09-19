@@ -1,23 +1,29 @@
 import { type Context, type Env, type Handler, Hono } from 'hono'
 import { type LexiconDoc, Lexicons, lexToJson } from '@atproto/lexicon'
+import { Readable } from 'node:stream'
+import { Buffer } from 'node:buffer'
+import type {
+  HonoAuthVerifier,
+  HonoXRPCHandler,
+  HonoXRPCHandlerConfig,
+} from './types.ts'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import type { BlankEnv } from 'hono/types'
 import {
-  type HandlerAuth,
+  InternalServerError,
+  InvalidRequestError,
+  isErrorResult,
+  MethodNotImplementedError,
+  XRPCError,
+} from './xrpc-server-errors.ts'
+import {
+  type AuthResult,
   type HandlerInput,
   type HandlerPipeThrough,
   type HandlerSuccess,
-  InternalServerError,
-  InvalidRequestError,
-  isHandlerError,
   isHandlerPipeThroughBuffer,
   isHandlerPipeThroughStream,
-  MethodNotImplementedError,
-  XRPCError,
-} from '@atproto/xrpc-server'
-import { Readable } from 'node:stream'
-import { Buffer } from 'node:buffer'
-import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig } from './types.ts'
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { BlankEnv } from 'hono/types'
+} from './xrpc-server-types.ts'
 
 const kRequestLocals = Symbol('requestLocals')
 
@@ -36,7 +42,7 @@ export interface XRPCHono<E extends Env = BlankEnv> {
   createApp(): Hono<E>
 }
 /** Options is **NOT supported** (arguments are accepted for compatibility). */
-export const createXRPCHono = <E extends Env = BlankEnv,>(
+export const createXRPCHono = <E extends Env = BlankEnv>(
   lexiconsSource: LexiconDoc[],
   _options?: unknown,
 ): XRPCHono<E> => {
@@ -104,9 +110,9 @@ export const createXRPCHono = <E extends Env = BlankEnv,>(
           ...middlwares,
           async (c) => {
             const encoding = c.req.header('Content-Type')
-            let input: HandlerInput | undefined = undefined
+            let input: HandlerInput | undefined
             if (encoding) {
-              let body: unknown = undefined
+              let body: unknown
               if (encoding.startsWith('application/json')) {
                 try {
                   body = await c.req.json()
@@ -145,7 +151,7 @@ export const createXRPCHono = <E extends Env = BlankEnv,>(
               auth: (c.req[kRequestLocals] as RequestLocals)?.auth,
               params,
               input,
-              c
+              c,
             })
             if (!output) {
               lexicons.assertValidXrpcOutput(lexicon.id, output)
@@ -159,7 +165,7 @@ export const createXRPCHono = <E extends Env = BlankEnv,>(
               c.status(200)
               c.header('Content-Type', output.encoding)
               return c.body(Uint8Array.from(output.buffer).buffer)
-            } else if (isHandlerError(output)) {
+            } else if (isErrorResult(output)) {
               throw (XRPCError.fromError(output))
             } else {
               lexicons.assertValidXrpcOutput(lexicon.id, output.body)
@@ -225,7 +231,7 @@ export const createXRPCHono = <E extends Env = BlankEnv,>(
 }
 
 type RequestLocals = {
-  auth: HandlerAuth | undefined
+  auth: AuthResult | undefined
   nsid: string
 }
 function createLocalsMiddleware(nsid: string): Handler {
@@ -267,8 +273,8 @@ function readableToReadableStream(nodeReadable: Readable): ReadableStream {
 function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
   return async (ctx, next) => {
     const result = await verifier({ ctx })
-    if (isHandlerError(result)) {
-      throw XRPCError.fromHandlerError(result)
+    if (isErrorResult(result)) {
+      throw XRPCError.fromErrorResult(result)
     } //@ts-ignore reqにkRequestLocalsはある
     const locals: RequestLocals = ctx.req[kRequestLocals]!
     locals.auth = result
