@@ -6,6 +6,7 @@ import type {
   HonoAuthVerifier,
   HonoXRPCHandler,
   HonoXRPCHandlerConfig,
+  RequestLocals,
 } from './types.ts'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { BlankEnv } from 'hono/types'
@@ -17,7 +18,6 @@ import {
   XRPCError,
 } from './xrpc-server-errors.ts'
 import {
-  type AuthResult,
   type HandlerInput,
   type HandlerPipeThrough,
   type HandlerSuccess,
@@ -230,10 +230,6 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
   }
 }
 
-type RequestLocals = {
-  auth: AuthResult | undefined
-  nsid: string
-}
 function createLocalsMiddleware(nsid: string): Handler {
   return (c, next) => {
     const locals: RequestLocals = { auth: undefined, nsid } //@ts-ignore reqにkRequestLocalsはある
@@ -270,7 +266,9 @@ function readableToReadableStream(nodeReadable: Readable): ReadableStream {
   })
 }
 
-function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
+function createAuthMiddleware<E extends Env>(
+  verifier: HonoAuthVerifier<E>,
+): Handler {
   return async (ctx, next) => {
     const result = await verifier({ ctx })
     if (isErrorResult(result)) {
@@ -283,3 +281,5 @@ function createAuthMiddleware(verifier: HonoAuthVerifier): Handler {
 }
 
 export * from './types.ts'
+export * from './xrpc-server-errors.ts'
+export * from './xrpc-server-types.ts'

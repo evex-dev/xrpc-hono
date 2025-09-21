@@ -1,21 +1,28 @@
 import type { Context, Env } from 'hono'
 import {
   AuthResult,
+  Awaitable,
   HandlerInput,
   Output,
   Params,
 } from './xrpc-server-types.ts'
 
-export interface HonoAuthVerifierContext {
-  ctx: Context
+type ErrorResult = {
+  status: number
+  message?: string
+  error?: string
 }
 
-export type HonoAuthVerifier = (
-  ctx: HonoAuthVerifierContext,
-) => Promise<AuthResult> | AuthResult
+export type HonoAuthVerifierContext<E extends Env> = {
+  ctx: Context<E>
+}
+
+export type HonoAuthVerifier<E extends Env> = (
+  ctx: HonoAuthVerifierContext<E>,
+) => Awaitable<AuthResult | ErrorResult>
 
 export type HonoXRPCHandlerConfig<E extends Env> = {
-  auth?: HonoAuthVerifier
+  auth?: HonoAuthVerifier<E>
   handler: HonoXRPCHandler<E>
 }
 
@@ -28,4 +35,8 @@ export type HonoXRPCReqContext<E extends Env> = {
   params: Params
   input: HandlerInput | undefined
   c: Context<E>
+}
+export type RequestLocals = {
+  auth: AuthResult | undefined
+  nsid: string
 }

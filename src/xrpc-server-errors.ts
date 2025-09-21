@@ -63,7 +63,7 @@ export function isErrorResult(v: unknown): v is ErrorResult {
   return true
 }
 
-export function excludeErrorResult<V>(v: V) {
+export function excludeErrorResult<V>(v: V): Exclude<V, ErrorResult> {
   if (isErrorResult(v)) throw XRPCError.fromErrorResult(v)
   return v as Exclude<V, ErrorResult>
 }
@@ -93,7 +93,7 @@ export class XRPCError extends Error {
     return type
   }
 
-  get payload() {
+  get payload(): { error?: string; message?: string } {
     return {
       error: this.customErrorName ?? this.typeName,
       message: this.type === ResponseType.InternalServerError
