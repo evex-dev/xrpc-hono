@@ -18,6 +18,7 @@ import {
   XRPCError,
 } from './xrpc-server-errors.ts'
 import {
+  type AuthResult,
   type HandlerInput,
   type HandlerPipeThrough,
   type HandlerSuccess,
@@ -28,14 +29,14 @@ import {
 const kRequestLocals = Symbol('requestLocals')
 
 export interface XRPCHono<E extends Env = BlankEnv> {
-  addMethod(
+  addMethod<A extends AuthResult>(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
+    configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
   ): void
   //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
-  method(
+  method<A extends AuthResult>(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
+    configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
   ): void
   addLexicon(doc: LexiconDoc): void
   addLexicons(docs: LexiconDoc[]): void
@@ -46,22 +47,22 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
   lexiconsSource: LexiconDoc[],
   _options?: unknown,
 ): XRPCHono<E> => {
-  const methods = new Map<string, HonoXRPCHandlerConfig<E>>()
+  const methods = new Map<string, HonoXRPCHandlerConfig<E, any>>()
   const lexicons = new Lexicons(lexiconsSource)
 
   return {
-    addMethod(
+    addMethod<A extends AuthResult>(
       method: string,
-      configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
+      configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
     ) {
       const config = typeof configOrFn === 'function'
         ? { handler: configOrFn }
         : configOrFn
       methods.set(method, config)
     },
-    method(
+    method<A extends AuthResult>(
       method: string,
-      configOrFn: HonoXRPCHandlerConfig<E> | HonoXRPCHandler<E>,
+      configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
     ) {
       this.addMethod(method, configOrFn)
     },
@@ -70,7 +71,7 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
 
       // 全てのリクエストに実行するバリデーションとか
       app.use('/xrpc/:methodId', (c, next) => {
-        const methodId = c.req.param('methodId')!
+        const methodId = c.req.param('methodId')
         const def = lexicons.getDef(methodId)
         if (!def) {
           throw (new MethodNotImplementedError())
@@ -266,8 +267,8 @@ function readableToReadableStream(nodeReadable: Readable): ReadableStream {
   })
 }
 
-function createAuthMiddleware<E extends Env>(
-  verifier: HonoAuthVerifier<E>,
+function createAuthMiddleware<E extends Env, A extends AuthResult>(
+  verifier: HonoAuthVerifier<E, A>,
 ): Handler {
   return async (ctx, next) => {
     const result = await verifier({ ctx })

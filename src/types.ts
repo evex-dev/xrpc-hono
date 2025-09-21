@@ -17,21 +17,21 @@ export type HonoAuthVerifierContext<E extends Env> = {
   ctx: Context<E>
 }
 
-export type HonoAuthVerifier<E extends Env> = (
+export type HonoAuthVerifier<E extends Env, A extends AuthResult> = (
   ctx: HonoAuthVerifierContext<E>,
-) => Awaitable<AuthResult | ErrorResult>
+) => Awaitable<A | ErrorResult>
 
-export type HonoXRPCHandlerConfig<E extends Env> = {
-  auth?: HonoAuthVerifier<E>
-  handler: HonoXRPCHandler<E>
+export type HonoXRPCHandlerConfig<E extends Env, A extends AuthResult> = {
+  auth?: HonoAuthVerifier<E, A>
+  handler: HonoXRPCHandler<E, A>
 }
 
-export type HonoXRPCHandler<E extends Env> = (
-  ctx: HonoXRPCReqContext<E>,
+export type HonoXRPCHandler<E extends Env, A extends AuthResult> = (
+  ctx: HonoXRPCReqContext<E, A>,
 ) => Promise<Output> | Output | undefined
 
-export type HonoXRPCReqContext<E extends Env> = {
-  auth: AuthResult | undefined
+export type HonoXRPCReqContext<E extends Env, A extends AuthResult> = {
+  auth: A | undefined
   params: Params
   input: HandlerInput | undefined
   c: Context<E>
