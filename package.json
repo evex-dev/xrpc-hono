@@ -1,5 +1,6 @@
 {
 	"name": "@evex-dev/xrpc-hono",
+	"private": false,
 	"version": "0.0.1",
 	"description": "A XRPC server implementation for Hono.",
 	"type": "module",
