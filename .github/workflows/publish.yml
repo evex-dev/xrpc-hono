@@ -1,4 +1,5 @@
 name: Publish
+
 on:
   push:
     branches:
@@ -15,5 +16,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+      
+      - name: Check if package version already published
+        id: check_published
+        run: |
+          PACKAGE=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Checking ${PACKAGE}@${VERSION} on registry..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/${PACKAGE}/${VERSION}")
+          if [ "$STATUS" = "200" ]; then
+            echo "Package ${PACKAGE}@${VERSION} already published."
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        if: steps.check_published.outputs.published == 'false'
+        run: pnpm install --frozen-lockfile
+
       - name: Publish package
-        run: npx jsr publish
+        if: steps.check_published.outputs.published == 'false'
+        run: pnpm publish
