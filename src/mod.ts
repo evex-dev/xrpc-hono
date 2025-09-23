@@ -31,14 +31,14 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 		I extends HandlerInput | undefined = undefined,
 		O extends Output = Output,
 		A extends AuthResult | undefined = undefined,
-	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, P, I, O, A> | HonoXRPCHandler<E, P, I, O, A>): void;
+	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
 	//@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
 	method<
 		P extends Params = Params,
 		I extends HandlerInput | undefined = undefined,
 		O extends Output = Output,
 		A extends AuthResult | undefined = undefined,
-	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, P, I, O, A> | HonoXRPCHandler<E, P, I, O, A>): void;
+	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
 	addLexicon(doc: LexiconDoc): void;
 	addLexicons(docs: LexiconDoc[]): void;
 	createApp(): Hono<E>;
