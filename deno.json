@@ -1,6 +1,6 @@
 {
   "name": "@evex/xrpc-hono",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "exports": "./src/mod.ts",
   "license": "MIT",
   "imports": {

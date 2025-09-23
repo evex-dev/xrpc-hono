@@ -35,7 +35,7 @@ export interface XRPCHono<E extends Env = BlankEnv> {
     P extends Params = Params,
     I extends HandlerInput | undefined = undefined,
     O extends Output = Output,
-    A extends AuthResult = AuthResult,
+    A extends AuthResult | undefined = undefined,
   >(
     method: string,
     configOrFn:
@@ -47,7 +47,7 @@ export interface XRPCHono<E extends Env = BlankEnv> {
     P extends Params = Params,
     I extends HandlerInput | undefined = undefined,
     O extends Output = Output,
-    A extends AuthResult = AuthResult,
+    A extends AuthResult | undefined = undefined,
   >(
     method: string,
     configOrFn:
