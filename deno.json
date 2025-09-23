@@ -1,6 +1,7 @@
 {
+  "$schema": "https://github.com/denoland/deno/raw/refs/heads/main/cli/schemas/config-file.v1.json",
   "name": "@evex/xrpc-hono",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "exports": "./src/mod.ts",
   "license": "MIT",
   "imports": {
