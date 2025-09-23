@@ -32,27 +32,27 @@ const kRequestLocals = Symbol('requestLocals')
 
 export interface XRPCHono<E extends Env = BlankEnv> {
   addMethod<
-    A extends AuthResult,
     P extends Params = Params,
     I extends HandlerInput | undefined = undefined,
     O extends Output = Output,
+    A extends AuthResult = AuthResult,
   >(
     method: string,
     configOrFn:
-      | HonoXRPCHandlerConfig<E, A, P, I, O>
-      | HonoXRPCHandler<E, A, P, I, O>,
+      | HonoXRPCHandlerConfig<E, P, I, O, A>
+      | HonoXRPCHandler<E, P, I, O, A>,
   ): void
   //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
   method<
-    A extends AuthResult,
     P extends Params = Params,
     I extends HandlerInput | undefined = undefined,
     O extends Output = Output,
+    A extends AuthResult = AuthResult,
   >(
     method: string,
     configOrFn:
-      | HonoXRPCHandlerConfig<E, A, P, I, O>
-      | HonoXRPCHandler<E, A, P, I, O>,
+      | HonoXRPCHandlerConfig<E, P, I, O, A>
+      | HonoXRPCHandler<E, P, I, O, A>,
   ): void
   addLexicon(doc: LexiconDoc): void
   addLexicons(docs: LexiconDoc[]): void

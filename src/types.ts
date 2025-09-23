@@ -23,30 +23,30 @@ export type HonoAuthVerifier<E extends Env, A extends AuthResult> = (
 
 export type HonoXRPCHandlerConfig<
   E extends Env,
-  A extends AuthResult,
   P extends Params,
   I extends HandlerInput | undefined,
   O extends Output,
+  A extends AuthResult,
 > = {
   auth?: HonoAuthVerifier<E, A>
-  handler: HonoXRPCHandler<E, A, P, I, O>
+  handler: HonoXRPCHandler<E, P, I, O, A>
 }
 
 export type HonoXRPCHandler<
   E extends Env,
-  A extends AuthResult,
   P extends Params,
   I extends HandlerInput | undefined,
   O extends Output,
+  A extends AuthResult,
 > = (
-  ctx: HonoXRPCReqContext<E, A, P, I>,
+  ctx: HonoXRPCReqContext<E, P, I, A>,
 ) => Awaitable<O>
 
 export type HonoXRPCReqContext<
   E extends Env,
-  A extends AuthResult,
   P extends Params,
   I extends HandlerInput | undefined,
+  A extends AuthResult,
 > = {
   auth: A
   params: P
