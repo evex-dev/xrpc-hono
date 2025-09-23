@@ -12,7 +12,7 @@ const PRETTIER_OPTS: PrettierOptions = {
 	trailingComma: "all",
 };
 
-export const utilTs = (project) =>
+export const utilTs = (project: Project) =>
 	gen(project, "/util.ts", async (file) => {
 		file.replaceWithText(`
 import { type ValidationResult } from '@atproto/lexicon'
@@ -133,7 +133,7 @@ export function asPredicate<V extends Validator>(validate: V) {
 `);
 	});
 
-export const lexiconsTs = (project, lexicons: LexiconDoc[]) =>
+export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 	gen(project, "/lexicons.ts", async (file) => {
 		//= import { type LexiconDoc, Lexicons } from '@atproto/lexicon'
 		file
@@ -161,18 +161,17 @@ export const lexiconsTs = (project, lexicons: LexiconDoc[]) =>
 			declarations: [
 				{
 					name: "schemaDict",
-					initializer:
-						JSON.stringify(
-							lexicons.reduce(
-								(acc, cur) => ({
-									...acc,
-									[toTitleCase(cur.id)]: cur,
-								}),
-								{},
-							),
-							null,
-							2,
-						) + " as const satisfies Record<string, LexiconDoc>",
+					initializer: `${JSON.stringify(
+						lexicons.reduce(
+							(acc, cur) => ({
+								...acc,
+								[toTitleCase(cur.id)]: cur,
+							}),
+							{},
+						),
+						null,
+						2,
+					)} as const satisfies Record<string, LexiconDoc>`,
 				},
 			],
 		});
@@ -235,7 +234,8 @@ export const lexiconsTs = (project, lexicons: LexiconDoc[]) =>
 			],
 			statements: [
 				// If $type is present, make sure it is valid before validating the rest of the object
-				"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: <>
+								"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
 			],
 			returnType: "ValidationResult",
 		});

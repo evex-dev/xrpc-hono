@@ -58,3 +58,6 @@ export type RequestLocals = {
 	auth: AuthResult | undefined;
 	nsid: string;
 };
+
+// biome-ignore lint/complexity/noBannedTypes: 今後拡張する
+export type HonoXRPCOptions<E extends Env>={}

@@ -6,6 +6,7 @@ import { gen, lexiconsTs, utilTs } from "./common.js";
 import { genCommonImports, genImports, genRecord, genUserType, genXrpcInput, genXrpcOutput, genXrpcParams } from "./lex-gen.js";
 import {
 	type DefTreeNode,
+	EnvTypeParameter,
 	lexiconsToDefTree,
 	schemasToNsidTokens,
 	toCamelCase,
@@ -13,7 +14,7 @@ import {
 	toTitleCase,
 } from "./util.js";
 
-export async function genServerApi(lexiconDocs: LexiconDoc[]): Promise<GeneratedAPI> {
+export async function genServerApi(lexiconDocs: LexiconDoc[], skipSub: boolean): Promise<GeneratedAPI> {
 	const project = new Project({
 		useInMemoryFileSystem: true,
 		manipulationSettings: { indentationText: IndentationText.TwoSpaces },
@@ -27,24 +28,31 @@ export async function genServerApi(lexiconDocs: LexiconDoc[]): Promise<Generated
 	}
 	api.files.push(await utilTs(project));
 	api.files.push(await lexiconsTs(project, lexiconDocs));
-	api.files.push(await indexTs(project, lexiconDocs, nsidTree, nsidTokens));
+	api.files.push(await indexTs(project, lexiconDocs, nsidTree, nsidTokens, skipSub));
 	return api;
 }
 
-const indexTs = (project: Project, lexiconDocs: LexiconDoc[], nsidTree: DefTreeNode[], nsidTokens: Record<string, string[]>) =>
+const indexTs = (
+	project: Project,
+	lexiconDocs: LexiconDoc[],
+	nsidTree: DefTreeNode[],
+	nsidTokens: Record<string, string[]>,
+	skipSub: boolean,
+) =>
 	gen(project, "/index.ts", async (file) => {
 		//= import {createServer as createXrpcServer, Server as XrpcServer} from '@atproto/xrpc-server'
 		file.addImportDeclaration({
-			moduleSpecifier: "@atproto/xrpc-server",
+			moduleSpecifier: "@evex-dev/xrpc-hono",
 			namedImports: [
 				{ name: "Auth", isTypeOnly: true },
-				{ name: "Options", alias: "XrpcOptions", isTypeOnly: true },
-				{ name: "Server", alias: "XrpcServer" },
-				{ name: "StreamConfigOrHandler", isTypeOnly: true },
-				{ name: "MethodConfigOrHandler", isTypeOnly: true },
-				{ name: "createServer", alias: "createXrpcServer" },
+				{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
+				{ name: "XRPCHono", alias: "XrpcServer" },
+				// { name: "StreamConfigOrHandler", isTypeOnly: true },
+				{ name: "HonoConfigOrHandler", isTypeOnly: true },
+				{ name: "createXRPCHono", alias: "createXrpcServer" },
 			],
 		});
+		file.addImportDeclaration({ moduleSpecifier: "hono", namedImports: [{ name: "Env", isTypeOnly: true }] });
 		//= import {schemas} from './lexicons.js'
 		file
 			.addImportDeclaration({
@@ -94,21 +102,23 @@ const indexTs = (project: Project, lexiconDocs: LexiconDoc[], nsidTree: DefTreeN
 		//= export function createServer(options?: XrpcOptions) { ... }
 		const createServerFn = file.addFunction({
 			name: "createServer",
-			returnType: "Server",
-			parameters: [{ name: "options", type: "XrpcOptions", hasQuestionToken: true }],
+			returnType: "Server<E>",
+			parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
 			isExported: true,
+			typeParameters: [{ name: "E", constraint: "Env", default: "Env" }],
 		});
-		createServerFn.setBodyText(`return new Server(options)`);
+		createServerFn.setBodyText(`return new Server<E>(options)`);
 
 		//= export class Server {...}
 		const serverCls = file.addClass({
 			name: "Server",
 			isExported: true,
+			typeParameters: [EnvTypeParameter],
 		});
 		//= xrpc: XrpcServer = createXrpcServer(methodSchemas)
 		serverCls.addProperty({
 			name: "xrpc",
-			type: "XrpcServer",
+			type: "XrpcServer<E>",
 		});
 
 		// generate classes for the schemas
@@ -116,11 +126,11 @@ const indexTs = (project: Project, lexiconDocs: LexiconDoc[], nsidTree: DefTreeN
 			//= ns: NS
 			serverCls.addProperty({
 				name: ns.propName,
-				type: ns.className,
+				type: `${ns.className}<E>`,
 			});
 
 			// class...
-			genNamespaceCls(file, ns);
+			genNamespaceCls(file, ns, skipSub);
 		}
 
 		//= constructor (options?: XrpcOptions) {
@@ -129,37 +139,38 @@ const indexTs = (project: Project, lexiconDocs: LexiconDoc[], nsidTree: DefTreeN
 		//= }
 		serverCls
 			.addConstructor({
-				parameters: [{ name: "options", type: "XrpcOptions", hasQuestionToken: true }],
+				parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true, }],
 			})
 			.setBodyText(
 				[
-					"this.xrpc = createXrpcServer(schemas, options)",
-					...nsidTree.map((ns) => `this.${ns.propName} = new ${ns.className}(this)`),
+					"this.xrpc = createXrpcServer<E>(schemas, options)",
+					...nsidTree.map((ns) => `this.${ns.propName} = new ${ns.className}<E>(this)`),
 				].join("\n"),
 			);
 	});
 
-function genNamespaceCls(file: SourceFile, ns: DefTreeNode) {
-	//= export class {ns}NS {...}
+function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
+	//= export class {ns}NS<E extends Env> {...}
 	const cls = file.addClass({
 		name: ns.className,
 		isExported: true,
+		typeParameters: [EnvTypeParameter],
 	});
-	//= _server: Server
+	//= _server: Server<E>
 	cls.addProperty({
 		name: "_server",
-		type: "Server",
+		type: "Server<E>",
 	});
 
 	for (const child of ns.children) {
 		//= child: ChildNS
 		cls.addProperty({
 			name: child.propName,
-			type: child.className,
+			type: `${child.className}<E>`,
 		});
 
 		// recurse
-		genNamespaceCls(file, child);
+		genNamespaceCls(file, child, skipSub);
 	}
 
 	//= constructor(server: Server) {
@@ -169,10 +180,10 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode) {
 	const cons = cls.addConstructor();
 	cons.addParameter({
 		name: "server",
-		type: "Server",
+		type: "Server<E>",
 	});
 	cons.setBodyText(
-		[`this._server = server`, ...ns.children.map((ns) => `this.${ns.propName} = new ${ns.className}(server)`)].join("\n"),
+		[`this._server = server`, ...ns.children.map((ns) => `this.${ns.propName} = new ${ns.className}<E>(server)`)].join("\n"),
 	);
 
 	// methods
@@ -183,6 +194,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode) {
 		const moduleName = toTitleCase(userType.nsid);
 		const name = toCamelCase(NSID.parse(userType.nsid).name || "");
 		const isSubscription = userType.def.type === "subscription";
+		if (isSubscription && skipSub) continue;
 		const method = cls.addMethod({
 			name,
 			typeParameters: [
@@ -193,34 +205,37 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode) {
 				},
 			],
 		});
+		if (isSubscription)
+			throw new Error(
+				"Subscriptions are not supported yet. Contributions are welcome: https://github.com/evex-dev/xrpc-hono/ \nTo skip subscription methods during generation, use the --skip-sub option.",
+			);
 		method.addParameter({
 			name: "cfg",
-			type: isSubscription
+			type: /*isSubscription
 				? `StreamConfigOrHandler<
-          A,
-          ${moduleName}.QueryParams,
-          ${moduleName}.HandlerOutput,
+        	  A,
+        	  ${moduleName}.QueryParams,
+        	  ${moduleName}.HandlerOutput,
         >`
-				: `MethodConfigOrHandler<
+				:*/ `HonoConfigOrHandler<
+		  E,
           A,
           ${moduleName}.QueryParams,
           ${moduleName}.HandlerInput,
           ${moduleName}.HandlerOutput,
         >`,
 		});
-		const methodType = isSubscription ? "streamMethod" : "method";
+		const methodType = /*isSubscription ? "streamMethod" :*/ "addMethod";
 		method.setBodyText(
 			[
-				// Placing schema on separate line, since the following one was being formatted
-				// into multiple lines and causing the ts-ignore to ignore the wrong line.
-				`const nsid = '${userType.nsid}' // @ts-ignore`,
+				`const nsid = '${userType.nsid}'`,
 				`return this._server.xrpc.${methodType}(nsid, cfg)`,
 			].join("\n"),
 		);
 	}
 }
 
-const lexiconTs = (project, lexicons: Lexicons, lexiconDoc: LexiconDoc) =>
+const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc) =>
 	gen(project, `/types/${lexiconDoc.id.split(".").join("/")}.ts`, async (file) => {
 		const main = lexiconDoc.defs.main;
 		if (main?.type === "query" || main?.type === "procedure") {

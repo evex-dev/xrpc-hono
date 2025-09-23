@@ -10,13 +10,13 @@ import type {
 	LexPrimitive,
 	LexToken,
 } from "@atproto/lexicon";
-import { type JSDoc, type SourceFile, VariableDeclarationKind } from "ts-morph";
+import { type JSDoc, type PropertySignature, type SourceFile, VariableDeclarationKind } from "ts-morph";
 import { toCamelCase, toScreamingSnakeCase, toTitleCase } from "./util.js";
 
 interface Commentable {
 	addJsDoc: ({ description }: { description: string }) => JSDoc;
 }
-export function genComment<T extends Commentable>(commentable: T, def: { description?: string }): T {
+function genComment<T extends Commentable>(commentable: T, def: { description?: string }): T {
 	if (def.description) {
 		commentable.addJsDoc({ description: def.description });
 	}
@@ -85,10 +85,10 @@ export function genCommonImports(file: SourceFile, baseNsid: string) {
 }
 
 export function genImports(file: SourceFile, imports: Set<string>, baseNsid: string) {
-	const startPath = "/" + baseNsid.split(".").slice(0, -1).join("/");
+	const startPath = `/${baseNsid.split(".").slice(0, -1).join("/")}`;
 
 	for (const nsid of imports) {
-		const targetPath = "/" + nsid.split(".").join("/") + ".js";
+		const targetPath = `/${nsid.split(".").join("/")}.js`;
 		let resolvedPath = getRelativePath(startPath, targetPath);
 		if (!resolvedPath.startsWith(".")) {
 			resolvedPath = `./${resolvedPath}`;
@@ -195,7 +195,7 @@ function genObject(
 			} else {
 				if (propDef.type === "array") {
 					//= propName: type[]
-					let propAst;
+					let propAst: PropertySignature;
 					if (propDef.items.type === "ref") {
 						propAst = iface.addProperty({
 							name: `${propKey}${req ? "" : "?"}`,
@@ -339,7 +339,7 @@ export function genXrpcParams(file: SourceFile, lexicons: Lexicons, lexUri: stri
 								(defaultsArePresent && "default" in paramDef && paramDef.default !== undefined);
 							const jsDoc = paramDef.description ? `/** ${paramDef.description} */\n` : "";
 							return `${jsDoc}${paramKey}${req ? "" : "?"}: ${
-								paramDef.type === "array" ? primitiveToType(paramDef.items) + "[]" : primitiveToType(paramDef)
+								paramDef.type === "array" ? `${primitiveToType(paramDef.items)}[]` : primitiveToType(paramDef)
 							}`;
 						})
 						.join("\n")}

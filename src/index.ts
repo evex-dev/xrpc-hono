@@ -4,7 +4,7 @@ import { type LexiconDoc, Lexicons, lexToJson } from "@atproto/lexicon";
 import { type Context, type Env, type Handler, Hono } from "hono";
 import type { BlankEnv } from "hono/types";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig, RequestLocals } from "./types.js";
+import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig, HonoXRPCOptions, RequestLocals } from "./types.js";
 import {
 	InternalServerError,
 	InvalidRequestError,
@@ -32,19 +32,12 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 		O extends Output = Output,
 		A extends AuthResult | undefined = undefined,
 	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
-	//@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
-	method<
-		P extends Params = Params,
-		I extends HandlerInput | undefined = undefined,
-		O extends Output = Output,
-		A extends AuthResult | undefined = undefined,
-	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
 	addLexicon(doc: LexiconDoc): void;
 	addLexicons(docs: LexiconDoc[]): void;
 	createApp(): Hono<E>;
 }
 /** Options is **NOT supported** (arguments are accepted for compatibility). */
-export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: LexiconDoc[], _options?: unknown): XRPCHono<E> => {
+export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: LexiconDoc[], options?: HonoXRPCOptions<E>): XRPCHono<E> => {
 	const methods = new Map<string, HonoXRPCHandlerConfig<E, any, any, any, any>>();
 	const lexicons = new Lexicons(lexiconsSource);
 
@@ -52,9 +45,6 @@ export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: Lexicon
 		addMethod(method, configOrFn) {
 			const config = typeof configOrFn === "function" ? { handler: configOrFn } : configOrFn;
 			methods.set(method, config);
-		},
-		method(method, configOrFn) {
-			this.addMethod(method, configOrFn);
 		},
 		createApp() {
 			const app = new Hono<E>();
