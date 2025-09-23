@@ -32,13 +32,6 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 		O extends Output = Output,
 		A extends AuthResult | undefined = undefined,
 	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
-	//@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
-	method<
-		P extends Params = Params,
-		I extends HandlerInput | undefined = undefined,
-		O extends Output = Output,
-		A extends AuthResult | undefined = undefined,
-	>(method: string, configOrFn: HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>): void;
 	addLexicon(doc: LexiconDoc): void;
 	addLexicons(docs: LexiconDoc[]): void;
 	createApp(): Hono<E>;
@@ -52,9 +45,6 @@ export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: Lexicon
 		addMethod(method, configOrFn) {
 			const config = typeof configOrFn === "function" ? { handler: configOrFn } : configOrFn;
 			methods.set(method, config);
-		},
-		method(method, configOrFn) {
-			this.addMethod(method, configOrFn);
 		},
 		createApp() {
 			const app = new Hono<E>();
