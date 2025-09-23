@@ -1,0 +1,16 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+	"formatter": { "lineWidth": 130 },
+	"vcs": { "clientKind": "git", "enabled": true, "useIgnoreFile": true },
+	"linter": {
+		"rules": {
+			"style": { "noNonNullAssertion": "off" },
+			"suspicious": { "noConfusingVoidType": "off", "noExplicitAny": "off" },
+			"correctness": {
+				"noUnusedFunctionParameters": "off",
+				"noUnusedImports": { "fix": "safe", "level": "info", "options": {} },
+				"noUnusedVariables": "off"
+			}
+		}
+	}
+}

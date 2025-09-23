@@ -23,69 +23,66 @@
  * SOFTWARE.
  */
 
-import type { IncomingMessage } from 'node:http'
-import type { Readable } from 'node:stream'
+import type { Buffer } from "node:buffer";
+import type { IncomingMessage } from "node:http";
+import type { Readable } from "node:stream";
+import type { Context, Env, Next } from "hono";
 // import type { NextFunction, Request, Response } from "express";
 // import { CalcKeyFn, CalcPointsFn, RateLimiterI } from "./rate-limiter";
-import type { XRPCError } from './xrpc-server-errors.ts'
-import type { Context, Env, Next } from 'hono'
-import type { Buffer } from 'node:buffer'
+import type { XRPCError } from "./xrpc-server-errors.js";
 
 type ErrorResult = {
-  status: number
-  message?: string
-  error?: string
-}
+	status: number;
+	message?: string;
+	error?: string;
+};
 
-export type Awaitable<T> = T | Promise<T>
+export type Awaitable<T> = T | Promise<T>;
 
-export type CatchallHandler<E extends Env> = (
-  c: Context<E>,
-  next: Next,
-) => unknown
+export type CatchallHandler<E extends Env> = (c: Context<E>, next: Next) => unknown;
 
 export type Options<E extends Env> = {
-  validateResponse?: boolean
-  catchall?: CatchallHandler<E>
-  payload?: RouteOptions
-  // rateLimits?: {
-  // 	creator: RateLimiterCreator<HandlerContext>;
-  // 	global?: ServerRateLimitDescription<HandlerContext>[];
-  // 	shared?: ServerRateLimitDescription<HandlerContext>[];
-  // 	bypass?: (ctx: HandlerContext) => boolean;
-  // };
-  /**
-   * By default, errors are converted to {@link XRPCError} using
-   * {@link XRPCError.fromError} before being rendered. If method handlers throw
-   * error objects that are not properly rendered in the HTTP response, this
-   * function can be used to properly convert them to {@link XRPCError}. The
-   * provided function will typically fallback to the default error conversion
-   * (`return XRPCError.fromError(err)`) if the error is not recognized.
-   *
-   * @note This function should not throw errors.
-   */
-  errorParser?: (err: unknown) => XRPCError
-}
+	validateResponse?: boolean;
+	catchall?: CatchallHandler<E>;
+	payload?: RouteOptions;
+	// rateLimits?: {
+	// 	creator: RateLimiterCreator<HandlerContext>;
+	// 	global?: ServerRateLimitDescription<HandlerContext>[];
+	// 	shared?: ServerRateLimitDescription<HandlerContext>[];
+	// 	bypass?: (ctx: HandlerContext) => boolean;
+	// };
+	/**
+	 * By default, errors are converted to {@link XRPCError} using
+	 * {@link XRPCError.fromError} before being rendered. If method handlers throw
+	 * error objects that are not properly rendered in the HTTP response, this
+	 * function can be used to properly convert them to {@link XRPCError}. The
+	 * provided function will typically fallback to the default error conversion
+	 * (`return XRPCError.fromError(err)`) if the error is not recognized.
+	 *
+	 * @note This function should not throw errors.
+	 */
+	errorParser?: (err: unknown) => XRPCError;
+};
 
 // export type UndecodedParams = Request["query"];
 
-export type Primitive = string | number | boolean
-export type Params = { [P in string]?: undefined | Primitive | Primitive[] }
+export type Primitive = string | number | boolean;
+export type Params = { [P in string]?: undefined | Primitive | Primitive[] };
 
 export type HandlerInput = {
-  encoding: string
-  body: unknown
-}
+	encoding: string;
+	body: unknown;
+};
 
 export type AuthResult = {
-  credentials: unknown
-  artifacts?: unknown
-}
+	credentials: unknown;
+	artifacts?: unknown;
+};
 
 // export const headersSchema = z.record(z.string())
 
 // export type Headers = z.infer<typeof headersSchema>
-export type Headers = Record<string, string>
+export type Headers = Record<string, string>;
 
 // export const handlerSuccess = z.object({
 //   encoding: z.string(),
@@ -95,10 +92,10 @@ export type Headers = Record<string, string>
 
 // export type HandlerSuccess = z.infer<typeof handlerSuccess>
 export type HandlerSuccess = {
-  encoding: string
-  body?: any
-  headers?: Headers
-}
+	encoding: string;
+	body?: any;
+	headers?: Headers;
+};
 
 // export const handlerPipeThroughBuffer = z.object({
 //   encoding: z.string(),
@@ -108,10 +105,10 @@ export type HandlerSuccess = {
 
 // export type HandlerPipeThroughBuffer = z.infer<typeof handlerPipeThroughBuffer>
 export type HandlerPipeThroughBuffer = {
-  encoding: string
-  buffer: Buffer
-  headers?: Headers
-}
+	encoding: string;
+	buffer: Buffer;
+	headers?: Headers;
+};
 
 // export const handlerPipeThroughStream = z.object({
 //   encoding: z.string(),
@@ -121,10 +118,10 @@ export type HandlerPipeThroughBuffer = {
 
 // export type HandlerPipeThroughStream = z.infer<typeof handlerPipeThroughStream>
 export type HandlerPipeThroughStream = {
-  encoding: string
-  stream: Readable
-  headers?: Headers
-}
+	encoding: string;
+	stream: Readable;
+	headers?: Headers;
+};
 
 // export const handlerPipeThrough = z.union([
 //   handlerPipeThroughBuffer,
@@ -132,45 +129,39 @@ export type HandlerPipeThroughStream = {
 // ])
 
 // export type HandlerPipeThrough = z.infer<typeof handlerPipeThrough>
-export type HandlerPipeThrough =
-  | HandlerPipeThroughBuffer
-  | HandlerPipeThroughStream
+export type HandlerPipeThrough = HandlerPipeThroughBuffer | HandlerPipeThroughStream;
 
-export type Auth = void | AuthResult
-export type Input = void | HandlerInput
-export type Output = void | HandlerSuccess | ErrorResult
+export type Auth = void | AuthResult;
+export type Input = void | HandlerInput;
+export type Output = void | HandlerSuccess | ErrorResult;
 
 export type AuthVerifier<C, A extends AuthResult = AuthResult> =
-  | ((ctx: C) => Awaitable<A | ErrorResult>)
-  | ((ctx: C) => Awaitable<A>)
+	| ((ctx: C) => Awaitable<A | ErrorResult>)
+	| ((ctx: C) => Awaitable<A>);
 
 export type MethodAuthContext<P extends Params = Params> = {
-  params: P
-  req: Request
-  res: Response
-}
+	params: P;
+	req: Request;
+	res: Response;
+};
 
-export type MethodAuthVerifier<
-  A extends AuthResult = AuthResult,
-  P extends Params = Params,
-> = AuthVerifier<MethodAuthContext<P>, A>
+export type MethodAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
+	MethodAuthContext<P>,
+	A
+>;
 
-export type HandlerContext<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  I extends Input = Input,
-> = MethodAuthContext<P> & {
-  auth: A
-  input: I
-  resetRouteRateLimits: () => Promise<void>
-}
+export type HandlerContext<A extends Auth = Auth, P extends Params = Params, I extends Input = Input> = MethodAuthContext<P> & {
+	auth: A;
+	input: I;
+	resetRouteRateLimits: () => Promise<void>;
+};
 
 export type MethodHandler<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  I extends Input = Input,
-  O extends Output = Output,
-> = (ctx: HandlerContext<A, P, I>) => Awaitable<O | HandlerPipeThrough>
+	A extends Auth = Auth,
+	P extends Params = Params,
+	I extends Input = Input,
+	O extends Output = Output,
+> = (ctx: HandlerContext<A, P, I>) => Awaitable<O | HandlerPipeThrough>;
 
 // export type RateLimiterCreator<T extends HandlerContext = HandlerContext> = <
 // 	C extends T = T,
@@ -218,81 +209,61 @@ export type MethodHandler<
 // }
 
 export type RouteOptions = {
-  blobLimit?: number
-  jsonLimit?: number
-  textLimit?: number
-}
+	blobLimit?: number;
+	jsonLimit?: number;
+	textLimit?: number;
+};
 
-export type MethodConfig<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  I extends Input = Input,
-  O extends Output = Output,
-> = {
-  handler: MethodHandler<A, P, I, O>
-  auth?: MethodAuthVerifier<Extract<A, AuthResult>, P>
-  opts?: RouteOptions
-  // rateLimit?:
-  // 	| RateLimitOpts<HandlerContext<A, P, I>>
-  // 	| RateLimitOpts<HandlerContext<A, P, I>>[];
-}
+export type MethodConfig<A extends Auth = Auth, P extends Params = Params, I extends Input = Input, O extends Output = Output> = {
+	handler: MethodHandler<A, P, I, O>;
+	auth?: MethodAuthVerifier<Extract<A, AuthResult>, P>;
+	opts?: RouteOptions;
+	// rateLimit?:
+	// 	| RateLimitOpts<HandlerContext<A, P, I>>
+	// 	| RateLimitOpts<HandlerContext<A, P, I>>[];
+};
 
 export type MethodConfigOrHandler<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  I extends Input = Input,
-  O extends Output = Output,
-> = MethodHandler<A, P, I, O> | MethodConfig<A, P, I, O>
+	A extends Auth = Auth,
+	P extends Params = Params,
+	I extends Input = Input,
+	O extends Output = Output,
+> = MethodHandler<A, P, I, O> | MethodConfig<A, P, I, O>;
 
 export type StreamAuthContext<P extends Params = Params> = {
-  params: P
-  req: IncomingMessage
+	params: P;
+	req: IncomingMessage;
+};
+
+export type StreamAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
+	StreamAuthContext<P>,
+	A
+>;
+
+export type StreamContext<A extends Auth = Auth, P extends Params = Params> = StreamAuthContext<P> & {
+	auth: A;
+	signal: AbortSignal;
+};
+
+export type StreamHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> = (
+	ctx: StreamContext<A, P>,
+) => AsyncIterable<O>;
+
+export type StreamConfig<A extends Auth = Auth, P extends Params = Params, O = unknown> = {
+	auth?: StreamAuthVerifier<Extract<A, AuthResult>, P>;
+	handler: StreamHandler<A, P, O>;
+};
+
+export type StreamConfigOrHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> =
+	| StreamHandler<A, P, O>
+	| StreamConfig<A, P, O>;
+
+export function isHandlerPipeThroughBuffer(output: Output): output is HandlerPipeThroughBuffer {
+	// We only need to discriminate between possible Output values
+	return output != null && "buffer" in output && output.buffer !== undefined;
 }
 
-export type StreamAuthVerifier<
-  A extends AuthResult = AuthResult,
-  P extends Params = Params,
-> = AuthVerifier<StreamAuthContext<P>, A>
-
-export type StreamContext<
-  A extends Auth = Auth,
-  P extends Params = Params,
-> = StreamAuthContext<P> & {
-  auth: A
-  signal: AbortSignal
-}
-
-export type StreamHandler<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  O = unknown,
-> = (ctx: StreamContext<A, P>) => AsyncIterable<O>
-
-export type StreamConfig<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  O = unknown,
-> = {
-  auth?: StreamAuthVerifier<Extract<A, AuthResult>, P>
-  handler: StreamHandler<A, P, O>
-}
-
-export type StreamConfigOrHandler<
-  A extends Auth = Auth,
-  P extends Params = Params,
-  O = unknown,
-> = StreamHandler<A, P, O> | StreamConfig<A, P, O>
-
-export function isHandlerPipeThroughBuffer(
-  output: Output,
-): output is HandlerPipeThroughBuffer {
-  // We only need to discriminate between possible Output values
-  return output != null && 'buffer' in output && output['buffer'] !== undefined
-}
-
-export function isHandlerPipeThroughStream(
-  output: Output,
-): output is HandlerPipeThroughStream {
-  // We only need to discriminate between possible Output values
-  return output != null && 'stream' in output && output['stream'] !== undefined
+export function isHandlerPipeThroughStream(output: Output): output is HandlerPipeThroughStream {
+	// We only need to discriminate between possible Output values
+	return output != null && "stream" in output && output.stream !== undefined;
 }

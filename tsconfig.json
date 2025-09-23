@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "es2022",
+		"module": "node20",
+		"moduleResolution": "node16",
+		"rootDir": "./src",
+		"outDir": "./dist",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"incremental": true,
+		"tsBuildInfoFile": "./node_modules/.tmp/.tsbuildinfo",
+		"allowImportingTsExtensions": false
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "dist"]
+}
