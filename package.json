@@ -29,6 +29,10 @@
 	],
 	"author": "evex-dev",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/evex-dev/xrpc-hono.git"
+	},
 	"dependencies": {
 		"@atproto/lexicon": "^0.5.1",
 		"@atproto/xrpc": "^0.7.5",
