@@ -26,10 +26,6 @@
 import type { Buffer } from "node:buffer";
 import type { IncomingMessage } from "node:http";
 import type { Readable } from "node:stream";
-import type { Context, Env, Next } from "hono";
-// import type { NextFunction, Request, Response } from "express";
-// import { CalcKeyFn, CalcPointsFn, RateLimiterI } from "./rate-limiter";
-import type { XRPCError } from "./xrpc-server-errors.js";
 
 type ErrorResult = {
 	status: number;
@@ -39,30 +35,31 @@ type ErrorResult = {
 
 export type Awaitable<T> = T | Promise<T>;
 
-export type CatchallHandler<E extends Env> = (c: Context<E>, next: Next) => unknown;
+// Now options is not supported
+// export type CatchallHandler<E extends Env> = (c: Context<E>, next: Next) => unknown;
 
-export type Options<E extends Env> = {
-	validateResponse?: boolean;
-	catchall?: CatchallHandler<E>;
-	payload?: RouteOptions;
-	// rateLimits?: {
-	// 	creator: RateLimiterCreator<HandlerContext>;
-	// 	global?: ServerRateLimitDescription<HandlerContext>[];
-	// 	shared?: ServerRateLimitDescription<HandlerContext>[];
-	// 	bypass?: (ctx: HandlerContext) => boolean;
-	// };
-	/**
-	 * By default, errors are converted to {@link XRPCError} using
-	 * {@link XRPCError.fromError} before being rendered. If method handlers throw
-	 * error objects that are not properly rendered in the HTTP response, this
-	 * function can be used to properly convert them to {@link XRPCError}. The
-	 * provided function will typically fallback to the default error conversion
-	 * (`return XRPCError.fromError(err)`) if the error is not recognized.
-	 *
-	 * @note This function should not throw errors.
-	 */
-	errorParser?: (err: unknown) => XRPCError;
-};
+// export type Options<E extends Env> = {
+// 	validateResponse?: boolean;
+// 	catchall?: CatchallHandler<E>;
+// 	payload?: RouteOptions;
+// 	// rateLimits?: {
+// 	// 	creator: RateLimiterCreator<HandlerContext>;
+// 	// 	global?: ServerRateLimitDescription<HandlerContext>[];
+// 	// 	shared?: ServerRateLimitDescription<HandlerContext>[];
+// 	// 	bypass?: (ctx: HandlerContext) => boolean;
+// 	// };
+// 	/**
+// 	 * By default, errors are converted to {@link XRPCError} using
+// 	 * {@link XRPCError.fromError} before being rendered. If method handlers throw
+// 	 * error objects that are not properly rendered in the HTTP response, this
+// 	 * function can be used to properly convert them to {@link XRPCError}. The
+// 	 * provided function will typically fallback to the default error conversion
+// 	 * (`return XRPCError.fromError(err)`) if the error is not recognized.
+// 	 *
+// 	 * @note This function should not throw errors.
+// 	 */
+// 	errorParser?: (err: unknown) => XRPCError;
+// };
 
 // export type UndecodedParams = Request["query"];
 
@@ -156,13 +153,6 @@ export type HandlerContext<A extends Auth = Auth, P extends Params = Params, I e
 	resetRouteRateLimits: () => Promise<void>;
 };
 
-export type MethodHandler<
-	A extends Auth = Auth,
-	P extends Params = Params,
-	I extends Input = Input,
-	O extends Output = Output,
-> = (ctx: HandlerContext<A, P, I>) => Awaitable<O | HandlerPipeThrough>;
-
 // export type RateLimiterCreator<T extends HandlerContext = HandlerContext> = <
 // 	C extends T = T,
 // >(opts: {
@@ -213,22 +203,6 @@ export type RouteOptions = {
 	jsonLimit?: number;
 	textLimit?: number;
 };
-
-export type MethodConfig<A extends Auth = Auth, P extends Params = Params, I extends Input = Input, O extends Output = Output> = {
-	handler: MethodHandler<A, P, I, O>;
-	auth?: MethodAuthVerifier<Extract<A, AuthResult>, P>;
-	opts?: RouteOptions;
-	// rateLimit?:
-	// 	| RateLimitOpts<HandlerContext<A, P, I>>
-	// 	| RateLimitOpts<HandlerContext<A, P, I>>[];
-};
-
-export type MethodConfigOrHandler<
-	A extends Auth = Auth,
-	P extends Params = Params,
-	I extends Input = Input,
-	O extends Output = Output,
-> = MethodHandler<A, P, I, O> | MethodConfig<A, P, I, O>;
 
 export type StreamAuthContext<P extends Params = Params> = {
 	params: P;

@@ -1,7 +1,7 @@
 {
 	"name": "@evex-dev/xrpc-hono",
 	"private": false,
-	"version": "0.3.7",
+	"version": "0.3.8",
 	"description": "A XRPC server implementation for Hono.",
 	"type": "module",
 	"exports": {
@@ -35,9 +35,16 @@
 	},
 	"dependencies": {
 		"@atproto/lexicon": "^0.5.1",
+		"@atproto/syntax": "^0.4.1",
 		"@atproto/xrpc": "^0.7.5",
+		"chalk": "^5.6.2",
+		"commander": "^14.0.1",
 		"hono": "^4.9.8",
-		"http-errors": "^2.0.0"
+		"http-errors": "^2.0.0",
+		"prettier": "^3.6.2",
+		"ts-morph": "^27.0.0",
+		"yesno": "^0.4.0",
+		"zod": "^4.1.11"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.4",
