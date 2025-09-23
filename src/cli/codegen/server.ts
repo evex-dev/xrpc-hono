@@ -45,6 +45,7 @@ const indexTs = (
 			moduleSpecifier: "@evex-dev/xrpc-hono",
 			namedImports: [
 				{ name: "Auth", isTypeOnly: true },
+				{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
 				{ name: "XRPCHono", alias: "XrpcServer" },
 				// { name: "StreamConfigOrHandler", isTypeOnly: true },
 				{ name: "HonoConfigOrHandler", isTypeOnly: true },
@@ -102,10 +103,11 @@ const indexTs = (
 		const createServerFn = file.addFunction({
 			name: "createServer",
 			returnType: "Server<E>",
+			parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
 			isExported: true,
 			typeParameters: [{ name: "E", constraint: "Env", default: "Env" }],
 		});
-		createServerFn.setBodyText(`return new Server<E>()`);
+		createServerFn.setBodyText(`return new Server<E>(options)`);
 
 		//= export class Server {...}
 		const serverCls = file.addClass({
@@ -136,10 +138,12 @@ const indexTs = (
 		//=  {namespace declarations}
 		//= }
 		serverCls
-			.addConstructor()
+			.addConstructor({
+				parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true, }],
+			})
 			.setBodyText(
 				[
-					"this.xrpc = createXrpcServer(schemas)",
+					"this.xrpc = createXrpcServer<E>(schemas, options)",
 					...nsidTree.map((ns) => `this.${ns.propName} = new ${ns.className}<E>(this)`),
 				].join("\n"),
 			);
