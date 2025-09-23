@@ -4,7 +4,7 @@ import { type LexiconDoc, Lexicons, lexToJson } from "@atproto/lexicon";
 import { type Context, type Env, type Handler, Hono } from "hono";
 import type { BlankEnv } from "hono/types";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig, RequestLocals } from "./types.js";
+import type { HonoAuthVerifier, HonoXRPCHandler, HonoXRPCHandlerConfig, HonoXRPCOptions, RequestLocals } from "./types.js";
 import {
 	InternalServerError,
 	InvalidRequestError,
@@ -37,7 +37,7 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 	createApp(): Hono<E>;
 }
 /** Options is **NOT supported** (arguments are accepted for compatibility). */
-export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: LexiconDoc[], _options?: unknown): XRPCHono<E> => {
+export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: LexiconDoc[], options?: HonoXRPCOptions<E>): XRPCHono<E> => {
 	const methods = new Map<string, HonoXRPCHandlerConfig<E, any, any, any, any>>();
 	const lexicons = new Lexicons(lexiconsSource);
 
