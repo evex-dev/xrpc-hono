@@ -24,19 +24,35 @@ import {
   type HandlerSuccess,
   isHandlerPipeThroughBuffer,
   isHandlerPipeThroughStream,
+  type Output,
+  type Params,
 } from './xrpc-server-types.ts'
 
 const kRequestLocals = Symbol('requestLocals')
 
 export interface XRPCHono<E extends Env = BlankEnv> {
-  addMethod<A extends AuthResult>(
+  addMethod<
+    A extends AuthResult,
+    P extends Params = Params,
+    I extends HandlerInput | undefined = undefined,
+    O extends Output = Output,
+  >(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
+    configOrFn:
+      | HonoXRPCHandlerConfig<E, A, P, I, O>
+      | HonoXRPCHandler<E, A, P, I, O>,
   ): void
   //@atproto/xrpc-serverとの互換性を保つためにaddMethodを参照するmethodを用意する必要がある
-  method<A extends AuthResult>(
+  method<
+    A extends AuthResult,
+    P extends Params = Params,
+    I extends HandlerInput | undefined = undefined,
+    O extends Output = Output,
+  >(
     method: string,
-    configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
+    configOrFn:
+      | HonoXRPCHandlerConfig<E, A, P, I, O>
+      | HonoXRPCHandler<E, A, P, I, O>,
   ): void
   addLexicon(doc: LexiconDoc): void
   addLexicons(docs: LexiconDoc[]): void
@@ -47,22 +63,25 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
   lexiconsSource: LexiconDoc[],
   _options?: unknown,
 ): XRPCHono<E> => {
-  const methods = new Map<string, HonoXRPCHandlerConfig<E, any>>()
+  const methods = new Map<
+    string,
+    HonoXRPCHandlerConfig<E, any, any, any, any>
+  >()
   const lexicons = new Lexicons(lexiconsSource)
 
   return {
-    addMethod<A extends AuthResult>(
-      method: string,
-      configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
+    addMethod(
+      method,
+      configOrFn,
     ) {
       const config = typeof configOrFn === 'function'
         ? { handler: configOrFn }
         : configOrFn
       methods.set(method, config)
     },
-    method<A extends AuthResult>(
-      method: string,
-      configOrFn: HonoXRPCHandlerConfig<E, A> | HonoXRPCHandler<E, A>,
+    method(
+      method,
+      configOrFn,
     ) {
       this.addMethod(method, configOrFn)
     },
