@@ -78,3 +78,5 @@ export function toScreamingSnakeCase(v: string): string {
 	v = v.replace(/[.#-]+/gi, "_"); // convert dashes, dots, and hashes into underscores
 	return v.toUpperCase(); // and scream!
 }
+
+export const EnvTypeParameter = { name: "E", constraint: "Env" };

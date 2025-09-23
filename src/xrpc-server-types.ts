@@ -128,30 +128,30 @@ export type HandlerPipeThroughStream = {
 // export type HandlerPipeThrough = z.infer<typeof handlerPipeThrough>
 export type HandlerPipeThrough = HandlerPipeThroughBuffer | HandlerPipeThroughStream;
 
-export type Auth = void | AuthResult;
-export type Input = void | HandlerInput;
-export type Output = void | HandlerSuccess | ErrorResult;
+export type Auth = undefined | AuthResult;
+export type Input = undefined | HandlerInput;
+export type Output = undefined | HandlerSuccess | ErrorResult;
 
-export type AuthVerifier<C, A extends AuthResult = AuthResult> =
-	| ((ctx: C) => Awaitable<A | ErrorResult>)
-	| ((ctx: C) => Awaitable<A>);
+// export type AuthVerifier<C, A extends AuthResult = AuthResult> =
+// 	| ((ctx: C) => Awaitable<A | ErrorResult>)
+// 	| ((ctx: C) => Awaitable<A>);
 
-export type MethodAuthContext<P extends Params = Params> = {
-	params: P;
-	req: Request;
-	res: Response;
-};
+// export type MethodAuthContext<P extends Params = Params> = {
+// 	params: P;
+// 	req: Request;
+// 	res: Response;
+// };
 
-export type MethodAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
-	MethodAuthContext<P>,
-	A
->;
+// export type MethodAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
+// 	MethodAuthContext<P>,
+// 	A
+// >;
 
-export type HandlerContext<A extends Auth = Auth, P extends Params = Params, I extends Input = Input> = MethodAuthContext<P> & {
-	auth: A;
-	input: I;
-	resetRouteRateLimits: () => Promise<void>;
-};
+// export type HandlerContext<A extends Auth = Auth, P extends Params = Params, I extends Input = Input> = MethodAuthContext<P> & {
+// 	auth: A;
+// 	input: I;
+// 	resetRouteRateLimits: () => Promise<void>;
+// };
 
 // export type RateLimiterCreator<T extends HandlerContext = HandlerContext> = <
 // 	C extends T = T,
@@ -198,39 +198,39 @@ export type HandlerContext<A extends Auth = Auth, P extends Params = Params, I e
 // 	return typeof opts["name"] === "string";
 // }
 
-export type RouteOptions = {
-	blobLimit?: number;
-	jsonLimit?: number;
-	textLimit?: number;
-};
+// export type RouteOptions = {
+// 	blobLimit?: number;
+// 	jsonLimit?: number;
+// 	textLimit?: number;
+// };
 
-export type StreamAuthContext<P extends Params = Params> = {
-	params: P;
-	req: IncomingMessage;
-};
+// export type StreamAuthContext<P extends Params = Params> = {
+// 	params: P;
+// 	req: IncomingMessage;
+// };
 
-export type StreamAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
-	StreamAuthContext<P>,
-	A
->;
+// export type StreamAuthVerifier<A extends AuthResult = AuthResult, P extends Params = Params> = AuthVerifier<
+// 	StreamAuthContext<P>,
+// 	A
+// >;
 
-export type StreamContext<A extends Auth = Auth, P extends Params = Params> = StreamAuthContext<P> & {
-	auth: A;
-	signal: AbortSignal;
-};
+// export type StreamContext<A extends Auth = Auth, P extends Params = Params> = StreamAuthContext<P> & {
+// 	auth: A;
+// 	signal: AbortSignal;
+// };
 
-export type StreamHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> = (
-	ctx: StreamContext<A, P>,
-) => AsyncIterable<O>;
+// export type StreamHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> = (
+// 	ctx: StreamContext<A, P>,
+// ) => AsyncIterable<O>;
 
-export type StreamConfig<A extends Auth = Auth, P extends Params = Params, O = unknown> = {
-	auth?: StreamAuthVerifier<Extract<A, AuthResult>, P>;
-	handler: StreamHandler<A, P, O>;
-};
+// export type StreamConfig<A extends Auth = Auth, P extends Params = Params, O = unknown> = {
+// 	auth?: StreamAuthVerifier<Extract<A, AuthResult>, P>;
+// 	handler: StreamHandler<A, P, O>;
+// };
 
-export type StreamConfigOrHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> =
-	| StreamHandler<A, P, O>
-	| StreamConfig<A, P, O>;
+// export type StreamConfigOrHandler<A extends Auth = Auth, P extends Params = Params, O = unknown> =
+// 	| StreamHandler<A, P, O>
+// 	| StreamConfig<A, P, O>;
 
 export function isHandlerPipeThroughBuffer(output: Output): output is HandlerPipeThroughBuffer {
 	// We only need to discriminate between possible Output values

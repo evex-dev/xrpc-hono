@@ -11,6 +11,9 @@
 		}
 	},
 	"types": "./dist/index.d.ts",
+	"bin": {
+		"gen-xrpc-hono": "./dist/cli/index.js"
+	},
 	"scripts": {
 		"check": "biome check --write",
 		"prepack": "tsc"
