@@ -105,7 +105,7 @@ const indexTs = (
 			isExported: true,
 			typeParameters: [{ name: "E", constraint: "Env", default: "Env" }],
 		});
-		createServerFn.setBodyText(`return new Server<E>(options)`);
+		createServerFn.setBodyText(`return new Server<E>()`);
 
 		//= export class Server {...}
 		const serverCls = file.addClass({
