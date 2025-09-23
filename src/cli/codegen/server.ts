@@ -201,7 +201,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 				{
 					name: "A",
 					constraint: "Auth",
-					default: "void",
+					default: "undefined",
 				},
 			],
 		});
