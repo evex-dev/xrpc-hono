@@ -22,7 +22,7 @@ importers:
         version: 2.0.0
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.2.4
+        specifier: 2.2.4
         version: 2.2.4
       '@types/http-errors':
         specifier: ^2.0.5
