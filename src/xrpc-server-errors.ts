@@ -41,7 +41,7 @@ import { isHttpError } from "http-errors";
 //   message: z.string().optional(),
 // })
 // export type ErrorResult = z.infer<typeof errorResult>
-type ErrorResult = {
+export type ErrorResult = {
 	status: number;
 	message?: string;
 	error?: string;

@@ -1,11 +1,6 @@
 import type { Context, Env } from "hono";
+import type { ErrorResult } from "./xrpc-server-errors.js";
 import type { AuthResult, Awaitable, HandlerInput, Output, Params } from "./xrpc-server-types.js";
-
-type ErrorResult = {
-	status: number;
-	message?: string;
-	error?: string;
-};
 
 export type HonoAuthVerifierContext<E extends Env> = {
 	ctx: Context<E>;
@@ -60,4 +55,4 @@ export type RequestLocals = {
 };
 
 // biome-ignore lint/complexity/noBannedTypes: 今後拡張する
-export type HonoXRPCOptions<E extends Env>={}
+export type HonoXRPCOptions<E extends Env> = {};

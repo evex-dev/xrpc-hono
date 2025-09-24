@@ -37,7 +37,10 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 	createApp(): Hono<E>;
 }
 /** Options is **NOT supported** (arguments are accepted for compatibility). */
-export const createXRPCHono = <E extends Env = BlankEnv>(lexiconsSource: LexiconDoc[], options?: HonoXRPCOptions<E>): XRPCHono<E> => {
+export const createXRPCHono = <E extends Env = BlankEnv>(
+	lexiconsSource: LexiconDoc[],
+	options?: HonoXRPCOptions<E>,
+): XRPCHono<E> => {
 	const methods = new Map<string, HonoXRPCHandlerConfig<E, any, any, any, any>>();
 	const lexicons = new Lexicons(lexiconsSource);
 

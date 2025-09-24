@@ -162,13 +162,7 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 				{
 					name: "schemaDict",
 					initializer: `${JSON.stringify(
-						lexicons.reduce(
-							(acc, cur) => ({
-								...acc,
-								[toTitleCase(cur.id)]: cur,
-							}),
-							{},
-						),
+						Object.fromEntries(lexicons.map((lex) => [toTitleCase(lex.id), lex])),
 						null,
 						2,
 					)} as const satisfies Record<string, LexiconDoc>`,
@@ -235,7 +229,7 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 			statements: [
 				// If $type is present, make sure it is valid before validating the rest of the object
 				// biome-ignore lint/suspicious/noTemplateCurlyInString: <>
-								"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
+				"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
 			],
 			returnType: "ValidationResult",
 		});

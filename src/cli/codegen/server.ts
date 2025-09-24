@@ -139,7 +139,7 @@ const indexTs = (
 		//= }
 		serverCls
 			.addConstructor({
-				parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true, }],
+				parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
 			})
 			.setBodyText(
 				[
@@ -226,12 +226,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
         >`,
 		});
 		const methodType = /*isSubscription ? "streamMethod" :*/ "addMethod";
-		method.setBodyText(
-			[
-				`const nsid = '${userType.nsid}'`,
-				`return this._server.xrpc.${methodType}(nsid, cfg)`,
-			].join("\n"),
-		);
+		method.setBodyText([`const nsid = '${userType.nsid}'`, `return this._server.xrpc.${methodType}(nsid, cfg)`].join("\n"));
 	}
 }
 

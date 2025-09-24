@@ -24,14 +24,8 @@
  */
 
 import type { Buffer } from "node:buffer";
-import type { IncomingMessage } from "node:http";
 import type { Readable } from "node:stream";
-
-type ErrorResult = {
-	status: number;
-	message?: string;
-	error?: string;
-};
+import type { ErrorResult } from "./xrpc-server-errors.js";
 
 export type Awaitable<T> = T | Promise<T>;
 

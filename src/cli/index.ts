@@ -8,15 +8,16 @@ import { applyFileDiff, genFileDiff, printFileDiff, readAllLexicons } from "./ut
 
 const program = new Command();
 
-program.name("gen-xrpc-hono")
+program
+	.name("gen-xrpc-hono")
 	.description("Generate a TS server API with xrpc-hono")
 	.option("--yes", "skip confirmation")
-	.option("--skip-sub", "skip subscription methods (if any) when generating the server API",false)
+	.option("--skip-sub", "skip subscription methods (if any) when generating the server API", false)
 	.argument("<outdir>", "path of the directory to write to", toPath)
 	.argument("<lexicons...>", "paths of the lexicon files to include", toPaths)
-	.action(async (outDir: string, lexiconPaths: string[], o: { yes?: true, skipSub: true }) => {
+	.action(async (outDir: string, lexiconPaths: string[], o: { yes?: true; skipSub: true }) => {
 		const lexicons = readAllLexicons(lexiconPaths);
-		const api = await genServerApi(lexicons,o.skipSub);
+		const api = await genServerApi(lexicons, o.skipSub);
 		const diff = genFileDiff(outDir, api);
 		console.log("This will write the following files:");
 		printFileDiff(diff);
