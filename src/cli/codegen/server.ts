@@ -302,7 +302,7 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 		file.addTypeAlias({
 			isExported: true,
 			name: "HandlerInput",
-			type: "void",
+			type: "undefined",
 		});
 	}
 
@@ -365,7 +365,7 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 	file.addTypeAlias({
 		isExported: true,
 		name: "HandlerOutput",
-		type: `HandlerError | ${hasHandlerSuccess ? "HandlerSuccess" : "void"}`,
+		type: `HandlerError | ${hasHandlerSuccess ? "HandlerSuccess" : "undefined"}`,
 	});
 }
 
@@ -393,7 +393,7 @@ function genServerXrpcStreaming(file: SourceFile, lexicons: Lexicons, lexUri: st
 	file.addTypeAlias({
 		isExported: true,
 		name: "HandlerOutput",
-		type: `HandlerError | ${def.message?.schema ? "OutputSchema" : "void"}`,
+		type: `HandlerError | ${def.message?.schema ? "OutputSchema" : "undefined"}`,
 	});
 }
 
