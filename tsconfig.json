@@ -15,7 +15,8 @@
 		"incremental": true,
 		"tsBuildInfoFile": "./node_modules/.tmp/.tsbuildinfo",
 		"allowImportingTsExtensions": false,
-		"noImplicitAny": false
+		"noImplicitAny": false,
+		"types": ["node"]
 	},
 	"include": ["src"],
 	"exclude": ["node_modules", "dist"]
