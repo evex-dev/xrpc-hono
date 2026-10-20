@@ -35,21 +35,12 @@ import { isHttpError } from "http-errors";
 // @NOTE Do not depend (directly or indirectly) on "./types" here, as it would
 // create a circular dependency.
 
-// export const errorResult = z.object({
-//   status: z.number(),
-//   error: z.string().optional(),
-//   message: z.string().optional(),
-// })
-// export type ErrorResult = z.infer<typeof errorResult>
 export type ErrorResult = {
 	status: number;
 	message?: string;
 	error?: string;
 };
 
-// export function isErrorResult(v: unknown): v is ErrorResult {
-//   return errorResult.safeParse(v).success
-// }
 export function isErrorResult(v: unknown): v is ErrorResult {
 	if (typeof v !== "object" || v == null) return false;
 	const maybeErr = v as ErrorResult;

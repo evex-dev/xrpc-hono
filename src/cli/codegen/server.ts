@@ -1,6 +1,6 @@
-import { type LexiconDoc, Lexicons } from "@atproto/lexicon";
+import { type LexiconDoc, Lexicons, type LexXrpcProcedure, type LexXrpcQuery } from "@atproto/lexicon";
 import { NSID } from "@atproto/syntax";
-import { IndentationText, Project, type SourceFile, VariableDeclarationKind } from "ts-morph";
+import { type ClassDeclaration, IndentationText, Project, type SourceFile, VariableDeclarationKind } from "ts-morph";
 import type { GeneratedAPI } from "../types.js";
 import { gen, lexiconsTs, utilTs } from "./common.js";
 import { genCommonImports, genImports, genRecord, genUserType, genXrpcInput, genXrpcOutput, genXrpcParams } from "./lex-gen.js";
@@ -40,115 +40,125 @@ const indexTs = (
 	skipSub: boolean,
 ) =>
 	gen(project, "/index.ts", async (file) => {
-		//= import {createServer as createXrpcServer, Server as XrpcServer} from '@atproto/xrpc-server'
-		file.addImportDeclaration({
-			moduleSpecifier: "@evex-dev/xrpc-hono",
-			namedImports: [
-				{ name: "Auth", isTypeOnly: true },
-				{ name: "ErrorResult", isTypeOnly: true },
-				{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
-				{ name: "XRPCHono", alias: "XrpcServer" },
-				// { name: "StreamConfigOrHandler", isTypeOnly: true },
-				{ name: "HonoConfigOrHandler", isTypeOnly: true },
-				{ name: "createXRPCHono", alias: "createXrpcServer" },
-			],
+		genIndexImports(file, lexiconDocs);
+		genTokenEnums(file, nsidTokens);
+		genServerClass(file, nsidTree, skipSub);
+	});
+
+type XrpcMethodType = "query" | "subscription" | "procedure";
+
+function isXrpcMethodType(type: string | undefined): type is XrpcMethodType {
+	return type === "query" || type === "subscription" || type === "procedure";
+}
+
+function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[]) {
+	//= import {createServer as createXrpcServer, Server as XrpcServer} from '@atproto/xrpc-server'
+	file.addImportDeclaration({
+		moduleSpecifier: "@evex-dev/xrpc-hono",
+		namedImports: [
+			{ name: "Auth", isTypeOnly: true },
+			{ name: "ErrorResult", isTypeOnly: true },
+			{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
+			{ name: "XRPCHono", alias: "XrpcServer" },
+			{ name: "HonoConfigOrHandler", isTypeOnly: true },
+			{ name: "createXRPCHono", alias: "createXrpcServer" },
+		],
+	});
+	file.addImportDeclaration({ moduleSpecifier: "hono", namedImports: [{ name: "Env", isTypeOnly: true }] });
+	//= import {schemas} from './lexicons.js'
+	file
+		.addImportDeclaration({
+			moduleSpecifier: "./lexicons.js",
+		})
+		.addNamedImport({
+			name: "schemas",
 		});
-		file.addImportDeclaration({ moduleSpecifier: "hono", namedImports: [{ name: "Env", isTypeOnly: true }] });
-		//= import {schemas} from './lexicons.js'
+
+	// generate type imports
+	for (const lexiconDoc of lexiconDocs) {
+		if (!isXrpcMethodType(lexiconDoc.defs.main?.type)) {
+			continue;
+		}
 		file
 			.addImportDeclaration({
-				moduleSpecifier: "./lexicons.js",
+				moduleSpecifier: `./types/${lexiconDoc.id.split(".").join("/")}.js`,
 			})
-			.addNamedImport({
-				name: "schemas",
-			});
+			.setNamespaceImport(toTitleCase(lexiconDoc.id));
+	}
+}
 
-		// generate type imports
-		for (const lexiconDoc of lexiconDocs) {
-			if (
-				lexiconDoc.defs.main?.type !== "query" &&
-				lexiconDoc.defs.main?.type !== "subscription" &&
-				lexiconDoc.defs.main?.type !== "procedure"
-			) {
-				continue;
-			}
-			file
-				.addImportDeclaration({
-					moduleSpecifier: `./types/${lexiconDoc.id.split(".").join("/")}.js`,
-				})
-				.setNamespaceImport(toTitleCase(lexiconDoc.id));
-		}
-
-		// generate token enums
-		for (const nsidAuthority in nsidTokens) {
-			// export const {THE_AUTHORITY} = {
-			//  {Name}: "{authority.the.name}"
-			// }
-			file.addVariableStatement({
-				isExported: true,
-				declarationKind: VariableDeclarationKind.Const,
-				declarations: [
-					{
-						name: toScreamingSnakeCase(nsidAuthority),
-						initializer: [
-							"{",
-							...nsidTokens[nsidAuthority].map((nsidName) => `${toTitleCase(nsidName)}: "${nsidAuthority}.${nsidName}",`),
-							"}",
-						].join("\n"),
-					},
-				],
-			});
-		}
-
-		//= export function createServer(options?: XrpcOptions) { ... }
-		const createServerFn = file.addFunction({
-			name: "createServer",
-			returnType: "Server<E>",
-			parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
+function genTokenEnums(file: SourceFile, nsidTokens: Record<string, string[]>) {
+	for (const nsidAuthority in nsidTokens) {
+		// export const {THE_AUTHORITY} = {
+		//  {Name}: "{authority.the.name}"
+		// }
+		file.addVariableStatement({
 			isExported: true,
-			typeParameters: [{ name: "E", constraint: "Env", default: "Env" }],
+			declarationKind: VariableDeclarationKind.Const,
+			declarations: [
+				{
+					name: toScreamingSnakeCase(nsidAuthority),
+					initializer: [
+						"{",
+						...nsidTokens[nsidAuthority].map((nsidName) => `${toTitleCase(nsidName)}: "${nsidAuthority}.${nsidName}",`),
+						"}",
+					].join("\n"),
+				},
+			],
 		});
-		createServerFn.setBodyText(`return new Server<E>(options)`);
+	}
+}
 
-		//= export class Server {...}
-		const serverCls = file.addClass({
-			name: "Server",
-			isExported: true,
-			typeParameters: [EnvTypeParameter],
-		});
-		//= xrpc: XrpcServer = createXrpcServer(methodSchemas)
-		serverCls.addProperty({
-			name: "xrpc",
-			type: "XrpcServer<E>",
-		});
-
-		// generate classes for the schemas
-		for (const ns of nsidTree) {
-			//= ns: NS
-			serverCls.addProperty({
-				name: ns.propName,
-				type: `${ns.className}<E>`,
-			});
-
-			// class...
-			genNamespaceCls(file, ns, skipSub);
-		}
-
-		//= constructor (options?: XrpcOptions) {
-		//=  this.xrpc = createXrpcServer(schemas, options)
-		//=  {namespace declarations}
-		//= }
-		serverCls
-			.addConstructor({
-				parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
-			})
-			.setBodyText(
-				[
-					"this.xrpc = createXrpcServer<E>(schemas, options)",
-					...nsidTree.map((ns) => `this.${ns.propName} = new ${ns.className}<E>(this)`),
-				].join("\n"),
-			);
+function genServerClass(file: SourceFile, nsidTree: DefTreeNode[], skipSub: boolean) {
+	//= export function createServer(options?: XrpcOptions) { ... }
+	const createServerFn = file.addFunction({
+		name: "createServer",
+		returnType: "Server<E>",
+		parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
+		isExported: true,
+		typeParameters: [{ name: "E", constraint: "Env", default: "Env" }],
 	});
+	createServerFn.setBodyText(`return new Server<E>(options)`);
+
+	//= export class Server {...}
+	const serverCls = file.addClass({
+		name: "Server",
+		isExported: true,
+		typeParameters: [EnvTypeParameter],
+	});
+	//= xrpc: XrpcServer = createXrpcServer(methodSchemas)
+	serverCls.addProperty({
+		name: "xrpc",
+		type: "XrpcServer<E>",
+	});
+
+	// generate classes for the schemas
+	for (const ns of nsidTree) {
+		//= ns: NS
+		serverCls.addProperty({
+			name: ns.propName,
+			type: `${ns.className}<E>`,
+		});
+
+		// class...
+		genNamespaceCls(file, ns, skipSub);
+	}
+
+	//= constructor (options?: XrpcOptions) {
+	//=  this.xrpc = createXrpcServer(schemas, options)
+	//=  {namespace declarations}
+	//= }
+	serverCls
+		.addConstructor({
+			parameters: [{ name: "options", type: "XrpcOptions<E>", hasQuestionToken: true }],
+		})
+		.setBodyText(
+			[
+				"this.xrpc = createXrpcServer<E>(schemas, options)",
+				...nsidTree.map((ns) => `this.${ns.propName} = new ${ns.className}<E>(this)`),
+			].join("\n"),
+		);
+}
 
 function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 	//= export class {ns}NS<E extends Env> {...}
@@ -189,46 +199,43 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 
 	// methods
 	for (const userType of ns.userTypes) {
-		if (userType.def.type !== "query" && userType.def.type !== "subscription" && userType.def.type !== "procedure") {
+		if (!isXrpcMethodType(userType.def.type)) {
 			continue;
 		}
-		const moduleName = toTitleCase(userType.nsid);
-		const name = toCamelCase(NSID.parse(userType.nsid).name || "");
-		const isSubscription = userType.def.type === "subscription";
-		if (isSubscription && skipSub) continue;
-		const method = cls.addMethod({
-			name,
-			typeParameters: [
-				{
-					name: "A",
-					constraint: "Auth | ErrorResult",
-					default: "undefined",
-				},
-			],
-		});
-		if (isSubscription)
-			throw new Error(
-				"Subscriptions are not supported yet. Contributions are welcome: https://github.com/evex-dev/xrpc-hono/ \nTo skip subscription methods during generation, use the --skip-sub option.",
-			);
-		method.addParameter({
-			name: "cfg",
-			type: /*isSubscription
-				? `StreamConfigOrHandler<
-        	  A,
-        	  ${moduleName}.QueryParams,
-        	  ${moduleName}.HandlerOutput,
-        >`
-				:*/ `HonoConfigOrHandler<
+		if (userType.def.type === "subscription" && skipSub) continue;
+		genNamespaceMethod(cls, userType);
+	}
+}
+
+function genNamespaceMethod(cls: ClassDeclaration, userType: DefTreeNode["userTypes"][number]) {
+	const moduleName = toTitleCase(userType.nsid);
+	const name = toCamelCase(NSID.parse(userType.nsid).name || "");
+	//= {name}<A extends Auth | ErrorResult = undefined>(cfg: HonoConfigOrHandler<...>) {...}
+	const method = cls.addMethod({
+		name,
+		typeParameters: [
+			{
+				name: "A",
+				constraint: "Auth | ErrorResult",
+				default: "undefined",
+			},
+		],
+	});
+	if (userType.def.type === "subscription")
+		throw new Error(
+			"Subscriptions are not supported yet. Contributions are welcome: https://github.com/evex-dev/xrpc-hono/ \nTo skip subscription methods during generation, use the --skip-sub option.",
+		);
+	method.addParameter({
+		name: "cfg",
+		type: `HonoConfigOrHandler<
 		  E,
           A,
           ${moduleName}.QueryParams,
           ${moduleName}.HandlerInput,
           ${moduleName}.HandlerOutput,
         >`,
-		});
-		const methodType = /*isSubscription ? "streamMethod" :*/ "addMethod";
-		method.setBodyText([`const nsid = '${userType.nsid}'`, `return this._server.xrpc.${methodType}(nsid, cfg)`].join("\n"));
-	}
+	});
+	method.setBodyText([`const nsid = '${userType.nsid}'`, `return this._server.xrpc.addMethod(nsid, cfg)`].join("\n"));
 }
 
 const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc) =>
@@ -277,7 +284,16 @@ const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc)
 function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: string) {
 	const def = lexicons.getDefOrThrow(lexUri, ["query", "procedure"]);
 
-	//= export interface HandlerInput {...}
+	genHandlerInput(file, def);
+	const hasHandlerSuccess = genHandlerSuccess(file, def);
+	genHandlerError(file, def);
+	genHandlerOutput(file, hasHandlerSuccess);
+}
+
+type MethodDef = LexXrpcQuery | LexXrpcProcedure;
+
+//= export interface HandlerInput {...}
+function genHandlerInput(file: SourceFile, def: MethodDef) {
 	if (def.type === "procedure" && def.input?.encoding) {
 		const handlerInput = file.addInterface({
 			name: "HandlerInput",
@@ -303,44 +319,49 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 			type: "undefined",
 		});
 	}
+}
 
-	// export interface HandlerSuccess {...}
-	let hasHandlerSuccess = false;
-	if (def.output?.schema || def.output?.encoding) {
-		hasHandlerSuccess = true;
-		const handlerSuccess = file.addInterface({
-			name: "HandlerSuccess",
-			isExported: true,
-		});
+// export interface HandlerSuccess {...}
+/** @returns whether a HandlerSuccess was emitted */
+function genHandlerSuccess(file: SourceFile, def: MethodDef): boolean {
+	if (!(def.output?.schema || def.output?.encoding)) {
+		return false;
+	}
+	const handlerSuccess = file.addInterface({
+		name: "HandlerSuccess",
+		isExported: true,
+	});
 
-		if (def.output.encoding) {
-			handlerSuccess.addProperty({
-				name: "encoding",
-				type: encodingToType(def.output.encoding),
-			});
-		}
-		if (def.output?.schema) {
-			if (def.output.encoding.includes(",")) {
-				handlerSuccess.addProperty({
-					name: "body",
-					type: "OutputSchema | Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
-				});
-			} else {
-				handlerSuccess.addProperty({ name: "body", type: "OutputSchema" });
-			}
-		} else if (def.output?.encoding) {
-			handlerSuccess.addProperty({
-				name: "body",
-				type: "Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
-			});
-		}
+	if (def.output.encoding) {
 		handlerSuccess.addProperty({
-			name: "headers?",
-			type: "{ [key: string]: string }",
+			name: "encoding",
+			type: encodingToType(def.output.encoding),
 		});
 	}
+	if (def.output?.schema) {
+		if (def.output.encoding.includes(",")) {
+			handlerSuccess.addProperty({
+				name: "body",
+				type: "OutputSchema | Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
+			});
+		} else {
+			handlerSuccess.addProperty({ name: "body", type: "OutputSchema" });
+		}
+	} else if (def.output?.encoding) {
+		handlerSuccess.addProperty({
+			name: "body",
+			type: "Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
+		});
+	}
+	handlerSuccess.addProperty({
+		name: "headers?",
+		type: "{ [key: string]: string }",
+	});
+	return true;
+}
 
-	// export interface HandlerError {...}
+// export interface HandlerError {...}
+function genHandlerError(file: SourceFile, def: MethodDef) {
 	const handlerError = file.addInterface({
 		name: "HandlerError",
 		isExported: true,
@@ -355,8 +376,10 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 			type: def.errors.map((err) => `'${err.name}'`).join(" | "),
 		});
 	}
+}
 
-	// export type HandlerOutput = ...
+// export type HandlerOutput = ...
+function genHandlerOutput(file: SourceFile, hasHandlerSuccess: boolean) {
 	file.addTypeAlias({
 		isExported: true,
 		name: "HandlerOutput",
