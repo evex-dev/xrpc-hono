@@ -1,9 +1,16 @@
 import { type LexiconDoc, Lexicons } from "@atproto/lexicon";
 import { type Context, type Env, Hono } from "hono";
 import type { BlankEnv } from "hono/types";
-import { assertHttpMethod, getMethodDef, parseInput, parseParams } from "./request.js";
+import { assertHttpMethod, getEndpointDef, parseInput, parseParams } from "./request.js";
 import { errorResponse, renderOutput } from "./response.js";
-import type { HonoConfigOrHandler, HonoXRPCHandlerConfig, HonoXRPCOptions } from "./types.js";
+import { handleSubscription } from "./subscription.js";
+import type {
+	HonoConfigOrHandler,
+	HonoStreamConfigOrHandler,
+	HonoXRPCHandlerConfig,
+	HonoXRPCOptions,
+	HonoXRPCStreamConfig,
+} from "./types.js";
 import { type ErrorResult, excludeErrorResult, MethodNotImplementedError } from "./xrpc-server-errors.js";
 import type { AuthResult, HandlerInput, HandlerPipeThrough, Output, Params } from "./xrpc-server-types.js";
 
@@ -14,22 +21,30 @@ export interface XRPCHono<E extends Env = BlankEnv> {
 		O extends Output = Output,
 		A extends AuthResult | ErrorResult | undefined = undefined,
 	>(method: string, configOrFn: HonoConfigOrHandler<E, A, P, I, O>): void;
+	/** Registers the handler of a subscription. Serving it requires the `upgradeWebSocket` option. */
+	addStreamMethod<P extends Params = Params, O = unknown, A extends AuthResult | ErrorResult | undefined = undefined>(
+		method: string,
+		configOrFn: HonoStreamConfigOrHandler<E, A, P, O>,
+	): void;
 	addLexicon(doc: LexiconDoc): void;
 	addLexicons(docs: LexiconDoc[]): void;
 	createApp(): Hono<E>;
 }
 
-/** Options is **NOT supported** (arguments are accepted for compatibility). */
 export const createXRPCHono = <E extends Env = BlankEnv>(
 	lexiconsSource: LexiconDoc[],
 	options?: HonoXRPCOptions<E>,
 ): XRPCHono<E> => {
 	const methods = new Map<string, HonoXRPCHandlerConfig<E, any, any, any, any>>();
+	const streamMethods = new Map<string, HonoXRPCStreamConfig<E, any, any, unknown>>();
 	const lexicons = new Lexicons(lexiconsSource);
 
 	// Lexicons and methods are looked up per request, so anything added after createApp() is served too.
 	async function dispatch(c: Context<E>, nsid: string): Promise<Response> {
-		const def = getMethodDef(lexicons, nsid);
+		const def = getEndpointDef(lexicons, nsid);
+		if (def.type === "subscription") {
+			return handleSubscription(c, lexicons, nsid, def, streamMethods.get(nsid), options?.upgradeWebSocket);
+		}
 		assertHttpMethod(c, def);
 		const config = methods.get(nsid);
 		if (!config) {
@@ -48,6 +63,10 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
 		addMethod(method, configOrFn) {
 			const config = typeof configOrFn === "function" ? { handler: configOrFn } : configOrFn;
 			methods.set(method, config);
+		},
+		addStreamMethod(method, configOrFn) {
+			const config = typeof configOrFn === "function" ? { handler: configOrFn } : configOrFn;
+			streamMethods.set(method, config as HonoXRPCStreamConfig<E, any, any, unknown>);
 		},
 		createApp() {
 			const app = new Hono<E>();
@@ -77,4 +96,5 @@ export const createXRPCHono = <E extends Env = BlankEnv>(
 
 export * from "./types.js";
 export * from "./xrpc-server-errors.js";
+export * from "./xrpc-server-frames.js";
 export * from "./xrpc-server-types.js";

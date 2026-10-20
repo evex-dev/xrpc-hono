@@ -25,7 +25,7 @@ function genComment<T extends Commentable>(commentable: T, def: { description?: 
 	return commentable;
 }
 
-export function genCommonImports(file: SourceFile, baseNsid: string) {
+export function genCommonImports(file: SourceFile, baseNsid: string, importExt: string) {
 	// relative path from the generated file back to the output root (e.g. "../..")
 	const rootPath = baseNsid
 		.split(".")
@@ -49,14 +49,14 @@ export function genCommonImports(file: SourceFile, baseNsid: string) {
 	//= import { validate as _validate } from '../../lexicons.ts'
 	file
 		.addImportDeclaration({
-			moduleSpecifier: `${rootPath}/lexicons`,
+			moduleSpecifier: `${rootPath}/lexicons${importExt}`,
 		})
 		.addNamedImports([{ name: "validate", alias: "_validate" }]);
 
 	//= import { type $Typed, is$typed as _is$typed, type OmitKey } from '../[...]/util.ts'
 	file
 		.addImportDeclaration({
-			moduleSpecifier: `${rootPath}/util`,
+			moduleSpecifier: `${rootPath}/util${importExt}`,
 		})
 		.addNamedImports([
 			{ name: "$Typed", isTypeOnly: true },
@@ -86,11 +86,11 @@ export function genCommonImports(file: SourceFile, baseNsid: string) {
 	});
 }
 
-export function genImports(file: SourceFile, imports: Set<string>, baseNsid: string) {
+export function genImports(file: SourceFile, imports: Set<string>, baseNsid: string, importExt: string) {
 	const startPath = `/${baseNsid.split(".").slice(0, -1).join("/")}`;
 
 	for (const nsid of imports) {
-		const targetPath = `/${nsid.split(".").join("/")}.js`;
+		const targetPath = `/${nsid.split(".").join("/")}${importExt}`;
 		let resolvedPath = getRelativePath(startPath, targetPath);
 		if (!resolvedPath.startsWith(".")) {
 			resolvedPath = `./${resolvedPath}`;

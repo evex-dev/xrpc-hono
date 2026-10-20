@@ -1,4 +1,4 @@
-import { jsonToLex, type Lexicons, type LexXrpcProcedure, type LexXrpcQuery } from "@atproto/lexicon";
+import { jsonToLex, type Lexicons, type LexXrpcProcedure, type LexXrpcQuery, type LexXrpcSubscription } from "@atproto/lexicon";
 import { isValidNsid } from "@atproto/syntax";
 import type { Context, Env } from "hono";
 import { errorMessage, toInvalidRequest } from "./utils.js";
@@ -7,15 +7,16 @@ import { InvalidRequestError, MethodNotImplementedError } from "./xrpc-server-er
 import type { HandlerInput, Params } from "./xrpc-server-types.js";
 
 export type MethodDef = LexXrpcQuery | LexXrpcProcedure;
+export type EndpointDef = MethodDef | LexXrpcSubscription;
 
-/** Resolves the Lexicon definition of the requested method, which must be a query or a procedure. */
-export function getMethodDef(lexicons: Lexicons, nsid: string): MethodDef {
+/** Resolves the Lexicon definition of the requested endpoint, which must be a query, a procedure or a subscription. */
+export function getEndpointDef(lexicons: Lexicons, nsid: string): EndpointDef {
 	if (!isValidNsid(nsid)) {
 		throw new InvalidRequestError("invalid xrpc path");
 	}
 	const def = lexicons.getDef(nsid);
-	if (!def || (def.type !== "query" && def.type !== "procedure")) {
-		// unknown NSIDs, non-endpoint definitions and (not yet supported) subscriptions
+	if (!def || (def.type !== "query" && def.type !== "procedure" && def.type !== "subscription")) {
+		// unknown NSIDs and non-endpoint definitions
 		throw new MethodNotImplementedError();
 	}
 	return def;
@@ -37,7 +38,7 @@ function decodeParam(type: string, value: string): string | number | boolean {
 }
 
 /** Reads the query parameters declared by the Lexicon, decoded according to their types. */
-function readQueryParams(c: Context, def: MethodDef): Params {
+function readQueryParams(c: Context, def: EndpointDef): Params {
 	const searchParams = new URL(c.req.url).searchParams;
 	const params: Params = {};
 	for (const [key, prop] of Object.entries(def.parameters?.properties ?? {})) {
@@ -54,7 +55,7 @@ function readQueryParams(c: Context, def: MethodDef): Params {
 	return params;
 }
 
-export function parseParams<E extends Env>(c: Context<E>, lexicons: Lexicons, nsid: string, def: MethodDef): Params {
+export function parseParams<E extends Env>(c: Context<E>, lexicons: Lexicons, nsid: string, def: EndpointDef): Params {
 	const params = readQueryParams(c, def);
 	try {
 		// the validated value has Lexicon `default`s applied

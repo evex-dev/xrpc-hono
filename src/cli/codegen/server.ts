@@ -14,7 +14,15 @@ import {
 	toTitleCase,
 } from "./util.js";
 
-export async function genServerApi(lexiconDocs: LexiconDoc[], skipSub: boolean): Promise<GeneratedAPI> {
+export type GenServerApiOptions = {
+	/** Extension of the relative imports in the generated files (`.js`, `.ts`, ... or `""` for none). */
+	importExt?: string;
+};
+
+export async function genServerApi(
+	lexiconDocs: LexiconDoc[],
+	{ importExt = ".js" }: GenServerApiOptions = {},
+): Promise<GeneratedAPI> {
 	const project = new Project({
 		useInMemoryFileSystem: true,
 		manipulationSettings: { indentationText: IndentationText.TwoSpaces },
@@ -24,11 +32,11 @@ export async function genServerApi(lexiconDocs: LexiconDoc[], skipSub: boolean):
 	const nsidTree = lexiconsToDefTree(lexiconDocs);
 	const nsidTokens = schemasToNsidTokens(lexiconDocs);
 	for (const lexiconDoc of lexiconDocs) {
-		api.files.push(await lexiconTs(project, lexicons, lexiconDoc));
+		api.files.push(await lexiconTs(project, lexicons, lexiconDoc, importExt));
 	}
 	api.files.push(await utilTs(project));
-	api.files.push(await lexiconsTs(project, lexiconDocs));
-	api.files.push(await indexTs(project, lexiconDocs, nsidTree, nsidTokens, skipSub));
+	api.files.push(await lexiconsTs(project, lexiconDocs, importExt));
+	api.files.push(await indexTs(project, lexiconDocs, nsidTree, nsidTokens, importExt));
 	return api;
 }
 
@@ -37,12 +45,12 @@ const indexTs = (
 	lexiconDocs: LexiconDoc[],
 	nsidTree: DefTreeNode[],
 	nsidTokens: Record<string, string[]>,
-	skipSub: boolean,
+	importExt: string,
 ) =>
 	gen(project, "/index.ts", async (file) => {
-		genIndexImports(file, lexiconDocs);
+		genIndexImports(file, lexiconDocs, importExt);
 		genTokenEnums(file, nsidTokens);
-		genServerClass(file, nsidTree, skipSub);
+		genServerClass(file, nsidTree);
 	});
 
 type XrpcMethodType = "query" | "subscription" | "procedure";
@@ -51,7 +59,7 @@ function isXrpcMethodType(type: string | undefined): type is XrpcMethodType {
 	return type === "query" || type === "subscription" || type === "procedure";
 }
 
-function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[]) {
+function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[], importExt: string) {
 	//= import {createServer as createXrpcServer, Server as XrpcServer} from '@atproto/xrpc-server'
 	file.addImportDeclaration({
 		moduleSpecifier: "@evex-dev/xrpc-hono",
@@ -59,8 +67,9 @@ function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[]) {
 			{ name: "Auth", isTypeOnly: true },
 			{ name: "ErrorResult", isTypeOnly: true },
 			{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
-			{ name: "XRPCHono", alias: "XrpcServer" },
+			{ name: "XRPCHono", alias: "XrpcServer", isTypeOnly: true },
 			{ name: "HonoConfigOrHandler", isTypeOnly: true },
+			{ name: "HonoStreamConfigOrHandler", isTypeOnly: true },
 			{ name: "createXRPCHono", alias: "createXrpcServer" },
 		],
 	});
@@ -68,7 +77,7 @@ function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[]) {
 	//= import {schemas} from './lexicons.js'
 	file
 		.addImportDeclaration({
-			moduleSpecifier: "./lexicons.js",
+			moduleSpecifier: `./lexicons${importExt}`,
 		})
 		.addNamedImport({
 			name: "schemas",
@@ -81,7 +90,7 @@ function genIndexImports(file: SourceFile, lexiconDocs: LexiconDoc[]) {
 		}
 		file
 			.addImportDeclaration({
-				moduleSpecifier: `./types/${lexiconDoc.id.split(".").join("/")}.js`,
+				moduleSpecifier: `./types/${lexiconDoc.id.split(".").join("/")}${importExt}`,
 			})
 			.setNamespaceImport(toTitleCase(lexiconDoc.id));
 	}
@@ -109,7 +118,7 @@ function genTokenEnums(file: SourceFile, nsidTokens: Record<string, string[]>) {
 	}
 }
 
-function genServerClass(file: SourceFile, nsidTree: DefTreeNode[], skipSub: boolean) {
+function genServerClass(file: SourceFile, nsidTree: DefTreeNode[]) {
 	//= export function createServer(options?: XrpcOptions) { ... }
 	const createServerFn = file.addFunction({
 		name: "createServer",
@@ -141,7 +150,7 @@ function genServerClass(file: SourceFile, nsidTree: DefTreeNode[], skipSub: bool
 		});
 
 		// class...
-		genNamespaceCls(file, ns, skipSub);
+		genNamespaceCls(file, ns);
 	}
 
 	//= constructor (options?: XrpcOptions) {
@@ -160,7 +169,7 @@ function genServerClass(file: SourceFile, nsidTree: DefTreeNode[], skipSub: bool
 		);
 }
 
-function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
+function genNamespaceCls(file: SourceFile, ns: DefTreeNode) {
 	//= export class {ns}NS<E extends Env> {...}
 	const cls = file.addClass({
 		name: ns.className,
@@ -181,7 +190,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 		});
 
 		// recurse
-		genNamespaceCls(file, child, skipSub);
+		genNamespaceCls(file, child);
 	}
 
 	//= constructor(server: Server) {
@@ -202,7 +211,6 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 		if (!isXrpcMethodType(userType.def.type)) {
 			continue;
 		}
-		if (userType.def.type === "subscription" && skipSub) continue;
 		genNamespaceMethod(cls, userType);
 	}
 }
@@ -210,7 +218,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 function genNamespaceMethod(cls: ClassDeclaration, userType: DefTreeNode["userTypes"][number]) {
 	const moduleName = toTitleCase(userType.nsid);
 	const name = toCamelCase(NSID.parse(userType.nsid).name || "");
-	//= {name}<A extends Auth | ErrorResult = undefined>(cfg: HonoConfigOrHandler<...>) {...}
+	//= {name}<A extends Auth | ErrorResult = undefined>(cfg: HonoConfigOrHandler<...> | HonoStreamConfigOrHandler<...>) {...}
 	const method = cls.addMethod({
 		name,
 		typeParameters: [
@@ -221,24 +229,23 @@ function genNamespaceMethod(cls: ClassDeclaration, userType: DefTreeNode["userTy
 			},
 		],
 	});
-	if (userType.def.type === "subscription")
-		throw new Error(
-			"Subscriptions are not supported yet. Contributions are welcome: https://github.com/evex-dev/xrpc-hono/ \nTo skip subscription methods during generation, use the --skip-sub option.",
-		);
+	// subscriptions take no input and are registered with addStreamMethod
+	const isSubscription = userType.def.type === "subscription";
 	method.addParameter({
 		name: "cfg",
-		type: `HonoConfigOrHandler<
-		  E,
-          A,
-          ${moduleName}.QueryParams,
-          ${moduleName}.HandlerInput,
-          ${moduleName}.HandlerOutput,
-        >`,
+		type: isSubscription
+			? `HonoStreamConfigOrHandler<E, A, ${moduleName}.QueryParams, ${moduleName}.HandlerOutput>`
+			: `HonoConfigOrHandler<E, A, ${moduleName}.QueryParams, ${moduleName}.HandlerInput, ${moduleName}.HandlerOutput>`,
 	});
-	method.setBodyText([`const nsid = '${userType.nsid}'`, `return this._server.xrpc.addMethod(nsid, cfg)`].join("\n"));
+	method.setBodyText(
+		[
+			`const nsid = '${userType.nsid}'`,
+			`return this._server.xrpc.${isSubscription ? "addStreamMethod" : "addMethod"}(nsid, cfg)`,
+		].join("\n"),
+	);
 }
 
-const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc) =>
+const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc, importExt: string) =>
 	gen(project, `/types/${lexiconDoc.id.split(".").join("/")}.ts`, async (file) => {
 		const main = lexiconDoc.defs.main;
 		if (main?.type === "query" || main?.type === "procedure") {
@@ -253,7 +260,7 @@ const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc)
 			}
 		}
 
-		genCommonImports(file, lexiconDoc.id);
+		genCommonImports(file, lexiconDoc.id, importExt);
 
 		const imports: Set<string> = new Set();
 		for (const defId in lexiconDoc.defs) {
@@ -278,7 +285,7 @@ const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc)
 				genUserType(file, imports, lexicons, lexUri);
 			}
 		}
-		genImports(file, imports, lexiconDoc.id);
+		genImports(file, imports, lexiconDoc.id, importExt);
 	});
 
 function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: string) {
@@ -390,19 +397,23 @@ function genHandlerOutput(file: SourceFile, hasHandlerSuccess: boolean) {
 function genServerXrpcStreaming(file: SourceFile, lexicons: Lexicons, lexUri: string) {
 	const def = lexicons.getDefOrThrow(lexUri, ["subscription"]);
 
-	// export type HandlerError = ... (payload of an event-stream error frame)
-	const errorNames = def.errors?.map((e) => `'${e.name}'`).join(" | ") || "string";
+	// export type HandlerError = ErrorFrame<'FutureCursor' | ...>
+	file.addImportDeclaration({
+		moduleSpecifier: "@evex-dev/xrpc-hono",
+		namedImports: [{ name: "ErrorFrame", isTypeOnly: true }],
+	});
+	const errorNames = def.errors?.map((e) => `'${e.name}'`).join(" | ") || "never";
 	file.addTypeAlias({
 		name: "HandlerError",
 		isExported: true,
-		type: `{ error: ${errorNames}; message?: string }`,
+		type: `ErrorFrame<${errorNames}>`,
 	});
 
 	// export type HandlerOutput = ...
 	file.addTypeAlias({
 		isExported: true,
 		name: "HandlerOutput",
-		type: `HandlerError | ${def.message?.schema ? "OutputSchema" : "undefined"}`,
+		type: def.message?.schema ? "HandlerError | OutputSchema" : "HandlerError",
 	});
 }
 

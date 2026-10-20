@@ -133,7 +133,7 @@ export function asPredicate<V extends Validator>(validate: V) {
 `);
 	});
 
-export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
+export const lexiconsTs = (project: Project, lexicons: LexiconDoc[], importExt: string) =>
 	gen(project, "/lexicons.ts", async (file) => {
 		//= import { type LexiconDoc, Lexicons } from '@atproto/lexicon'
 		file
@@ -150,7 +150,7 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 		//= import { is$typed, maybe$typed, type $Typed } from './util'
 		file
 			.addImportDeclaration({
-				moduleSpecifier: "./util.js",
+				moduleSpecifier: `./util${importExt}`,
 			})
 			.addNamedImports([{ name: "$Typed", isTypeOnly: true }, { name: "is$typed" }, { name: "maybe$typed" }]);
 

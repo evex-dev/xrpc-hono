@@ -9,8 +9,6 @@ export const cliPath = path.join(repoRoot, "dist/cli/index.js");
 export const fixtureDir = path.join(repoRoot, "test/fixtures/lexicons");
 export const generatedRoot = path.join(repoRoot, "test/e2e/.generated");
 
-export const SUBSCRIPTION_FIXTURE = "com/atproto/sync/subscribeRepos.json";
-
 export function listFixtureFiles(dir = fixtureDir): string[] {
 	return fs
 		.readdirSync(dir, { withFileTypes: true })
@@ -19,10 +17,6 @@ export function listFixtureFiles(dir = fixtureDir): string[] {
 			return e.isDirectory() ? listFixtureFiles(p) : p.endsWith(".json") ? [p] : [];
 		})
 		.sort();
-}
-
-export function isSubscriptionFixture(file: string) {
-	return path.relative(fixtureDir, file).split(path.sep).join("/") === SUBSCRIPTION_FIXTURE;
 }
 
 /** Path of the generated `types/...ts` file for a fixture lexicon file. */
@@ -48,8 +42,13 @@ export function cleanupOutDirs() {
 export type RunResult = { code: number | null; stdout: string; stderr: string };
 
 export function runCli(args: string[]): Promise<RunResult> {
+	return runNode([cliPath, ...args]);
+}
+
+/** Runs the current Node.js binary with `args`. */
+export function runNode(args: string[]): Promise<RunResult> {
 	return new Promise((resolve) => {
-		execFile(process.execPath, [cliPath, ...args], { cwd: repoRoot }, (err, stdout, stderr) => {
+		execFile(process.execPath, args, { cwd: repoRoot }, (err, stdout, stderr) => {
 			const code = err ? ((err as { code?: number }).code ?? 1) : 0;
 			resolve({ code: typeof code === "number" ? code : 1, stdout, stderr });
 		});
