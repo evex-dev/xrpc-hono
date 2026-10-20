@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 import { BlobRef, type LexiconDoc } from "@atproto/lexicon";
 import { XRPCError, XrpcClient } from "@atproto/xrpc";
 import { Frame, Subscription } from "@atproto/xrpc-server";
-import { InvalidRequestError } from "@evex-dev/xrpc-hono";
 import { Hono } from "hono";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
@@ -37,12 +36,16 @@ const blobs = new Map<string, { mime: string; bytes: Uint8Array }>();
 
 let app: Hono;
 let createServer: (options?: Record<string, unknown>) => any;
+// imported at runtime like the generated code does (dist/), so that the errors thrown are the classes it checks for
+let InvalidRequestError: typeof import("../../src/index.js").InvalidRequestError;
+const PACKAGE = "@evex-dev/xrpc-hono";
 
 beforeAll(async () => {
 	const out = makeOutDir("server");
 	const r = await runCli(["--yes", out, ...fixtureFiles]);
 	expect(r.code, r.stdout + r.stderr).toBe(0);
 	({ createServer } = await import(/* @vite-ignore */ pathToFileURL(path.join(out, "index.ts")).href));
+	({ InvalidRequestError } = await import(/* @vite-ignore */ PACKAGE));
 	const server = createServer();
 
 	server.com.atproto.identity.resolveHandle(async ({ params }: any) => {
