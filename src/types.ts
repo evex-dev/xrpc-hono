@@ -6,19 +6,23 @@ export type HonoAuthVerifierContext<E extends Env> = {
 	ctx: Context<E>;
 };
 
-export type HonoAuthVerifier<E extends Env, A extends AuthResult | undefined> = (
+export type HonoAuthVerifier<E extends Env, A extends AuthResult | ErrorResult | undefined> = (
 	ctx: HonoAuthVerifierContext<E>,
-) => Awaitable<A | ErrorResult>;
+) => Awaitable<A>;
 
+/**
+ * `A` is the return type of the auth verifier (it may include `ErrorResult`).
+ * The handler receives it without the `ErrorResult` branch.
+ */
 export type HonoXRPCHandlerConfig<
 	E extends Env,
-	A extends AuthResult | undefined,
+	A extends AuthResult | ErrorResult | undefined,
 	P extends Params,
 	I extends HandlerInput | undefined,
 	O extends Output,
 > = {
 	auth?: HonoAuthVerifier<E, A>;
-	handler: HonoXRPCHandler<E, A, P, I, O>;
+	handler: HonoXRPCHandler<E, Exclude<A, ErrorResult>, P, I, O>;
 };
 
 export type HonoXRPCHandler<
@@ -43,11 +47,11 @@ export type HonoXRPCReqContext<
 
 export type HonoConfigOrHandler<
 	E extends Env,
-	A extends AuthResult | undefined,
+	A extends AuthResult | ErrorResult | undefined,
 	P extends Params,
 	I extends HandlerInput | undefined,
 	O extends Output,
-> = HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, A, P, I, O>;
+> = HonoXRPCHandlerConfig<E, A, P, I, O> | HonoXRPCHandler<E, Exclude<A, ErrorResult>, P, I, O>;
 
 export type RequestLocals = {
 	auth: AuthResult | undefined;

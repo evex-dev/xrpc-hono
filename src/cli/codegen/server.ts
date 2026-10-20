@@ -45,6 +45,7 @@ const indexTs = (
 			moduleSpecifier: "@evex-dev/xrpc-hono",
 			namedImports: [
 				{ name: "Auth", isTypeOnly: true },
+				{ name: "ErrorResult", isTypeOnly: true },
 				{ name: "HonoXRPCOptions", alias: "XrpcOptions", isTypeOnly: true },
 				{ name: "XRPCHono", alias: "XrpcServer" },
 				// { name: "StreamConfigOrHandler", isTypeOnly: true },
@@ -200,7 +201,7 @@ function genNamespaceCls(file: SourceFile, ns: DefTreeNode, skipSub: boolean) {
 			typeParameters: [
 				{
 					name: "A",
-					constraint: "Auth",
+					constraint: "Auth | ErrorResult",
 					default: "undefined",
 				},
 			],
@@ -234,9 +235,9 @@ const lexiconTs = (project: Project, lexicons: Lexicons, lexiconDoc: LexiconDoc)
 	gen(project, `/types/${lexiconDoc.id.split(".").join("/")}.ts`, async (file) => {
 		const main = lexiconDoc.defs.main;
 		if (main?.type === "query" || main?.type === "procedure") {
-			const streamingInput = main?.type === "procedure" && main.input?.encoding && !main.input.schema;
-			const streamingOutput = main.output?.encoding && !main.output.schema;
-			if (streamingInput || streamingOutput) {
+			// binary input is a web ReadableStream; only binary output may (also) be a node stream.Readable
+			const streamingOutput = main.output?.encoding && (!main.output.schema || main.output.encoding.includes(","));
+			if (streamingOutput) {
 				//= import stream from 'node:stream'
 				file.addImportDeclaration({
 					moduleSpecifier: "node:stream",
@@ -285,18 +286,15 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 
 		handlerInput.addProperty({
 			name: "encoding",
-			type: def.input.encoding
-				.split(",")
-				.map((v) => `'${v.trim()}'`)
-				.join(" | "),
+			type: encodingToType(def.input.encoding),
 		});
 		handlerInput.addProperty({
 			name: "body",
 			type: def.input.schema
 				? def.input.encoding.includes(",")
-					? "InputSchema | stream.Readable"
+					? "InputSchema | ReadableStream<Uint8Array>"
 					: "InputSchema"
-				: "stream.Readable",
+				: "ReadableStream<Uint8Array>",
 		});
 	} else {
 		file.addTypeAlias({
@@ -318,17 +316,14 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 		if (def.output.encoding) {
 			handlerSuccess.addProperty({
 				name: "encoding",
-				type: def.output.encoding
-					.split(",")
-					.map((v) => `'${v.trim()}'`)
-					.join(" | "),
+				type: encodingToType(def.output.encoding),
 			});
 		}
 		if (def.output?.schema) {
 			if (def.output.encoding.includes(",")) {
 				handlerSuccess.addProperty({
 					name: "body",
-					type: "OutputSchema | Uint8Array | stream.Readable",
+					type: "OutputSchema | Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
 				});
 			} else {
 				handlerSuccess.addProperty({ name: "body", type: "OutputSchema" });
@@ -336,7 +331,7 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 		} else if (def.output?.encoding) {
 			handlerSuccess.addProperty({
 				name: "body",
-				type: "Uint8Array | stream.Readable",
+				type: "Uint8Array | ReadableStream<Uint8Array> | stream.Readable",
 			});
 		}
 		handlerSuccess.addProperty({
@@ -372,21 +367,12 @@ function genServerXrpcMethod(file: SourceFile, lexicons: Lexicons, lexUri: strin
 function genServerXrpcStreaming(file: SourceFile, lexicons: Lexicons, lexUri: string) {
 	const def = lexicons.getDefOrThrow(lexUri, ["subscription"]);
 
-	file.addImportDeclaration({
-		moduleSpecifier: "@atproto/xrpc-server",
-		namedImports: [{ name: "ErrorFrame" }],
-	});
-
-	file.addImportDeclaration({
-		moduleSpecifier: "node:http",
-		namedImports: [{ name: "IncomingMessage" }],
-	});
-
-	// export type HandlerError = ...
+	// export type HandlerError = ... (payload of an event-stream error frame)
+	const errorNames = def.errors?.map((e) => `'${e.name}'`).join(" | ") || "string";
 	file.addTypeAlias({
 		name: "HandlerError",
 		isExported: true,
-		type: `ErrorFrame<${arrayToUnion(def.errors?.map((e) => e.name))}>`,
+		type: `{ error: ${errorNames}; message?: string }`,
 	});
 
 	// export type HandlerOutput = ...
@@ -397,9 +383,14 @@ function genServerXrpcStreaming(file: SourceFile, lexicons: Lexicons, lexUri: st
 	});
 }
 
-function arrayToUnion(arr?: string[]) {
-	if (!arr?.length) {
-		return "never";
-	}
-	return arr.map((item) => `'${item}'`).join(" | ");
+function encodingToType(encoding: string) {
+	return encoding
+		.split(",")
+		.map((v) => v.trim())
+		.map((v) => {
+			if (v === "*/*") return "string";
+			if (v.endsWith("/*")) return `\`${v.slice(0, -1)}\${string}\``;
+			return `'${v}'`;
+		})
+		.join(" | ");
 }
