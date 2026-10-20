@@ -8,9 +8,11 @@ import type {
 	Lexicons,
 	LexObject,
 	LexPrimitive,
+	LexRef,
+	LexRefUnion,
 	LexToken,
 } from "@atproto/lexicon";
-import { type JSDoc, type PropertySignature, type SourceFile, VariableDeclarationKind } from "ts-morph";
+import { type InterfaceDeclaration, type JSDoc, type SourceFile, VariableDeclarationKind } from "ts-morph";
 import { toCamelCase, toScreamingSnakeCase, toTitleCase } from "./util.js";
 
 interface Commentable {
@@ -23,7 +25,13 @@ function genComment<T extends Commentable>(commentable: T, def: { description?: 
 	return commentable;
 }
 
-export function genCommonImports(file: SourceFile, baseNsid: string) {
+export function genCommonImports(file: SourceFile, baseNsid: string, importExt: string) {
+	// relative path from the generated file back to the output root (e.g. "../..")
+	const rootPath = baseNsid
+		.split(".")
+		.map((_str) => "..")
+		.join("/");
+
 	//= import {ValidationResult, BlobRef} from '@atproto/lexicon'
 	file
 		.addImportDeclaration({
@@ -41,20 +49,14 @@ export function genCommonImports(file: SourceFile, baseNsid: string) {
 	//= import { validate as _validate } from '../../lexicons.ts'
 	file
 		.addImportDeclaration({
-			moduleSpecifier: `${baseNsid
-				.split(".")
-				.map((_str) => "..")
-				.join("/")}/lexicons`,
+			moduleSpecifier: `${rootPath}/lexicons${importExt}`,
 		})
 		.addNamedImports([{ name: "validate", alias: "_validate" }]);
 
 	//= import { type $Typed, is$typed as _is$typed, type OmitKey } from '../[...]/util.ts'
 	file
 		.addImportDeclaration({
-			moduleSpecifier: `${baseNsid
-				.split(".")
-				.map((_str) => "..")
-				.join("/")}/util`,
+			moduleSpecifier: `${rootPath}/util${importExt}`,
 		})
 		.addNamedImports([
 			{ name: "$Typed", isTypeOnly: true },
@@ -84,11 +86,11 @@ export function genCommonImports(file: SourceFile, baseNsid: string) {
 	});
 }
 
-export function genImports(file: SourceFile, imports: Set<string>, baseNsid: string) {
+export function genImports(file: SourceFile, imports: Set<string>, baseNsid: string, importExt: string) {
 	const startPath = `/${baseNsid.split(".").slice(0, -1).join("/")}`;
 
 	for (const nsid of imports) {
-		const targetPath = `/${nsid.split(".").join("/")}.js`;
+		const targetPath = `/${nsid.split(".").join("/")}${importExt}`;
 		let resolvedPath = getRelativePath(startPath, targetPath);
 		if (!resolvedPath.startsWith(".")) {
 			resolvedPath = `./${resolvedPath}`;
@@ -160,7 +162,7 @@ function genObject(
 
 	if (typeProperty) {
 		const hash = getHash(lexUri);
-		const baseNsid = stripScheme(stripHash(lexUri));
+		const baseNsid = baseNsidOf(lexUri);
 
 		//= $type?: <uri>
 		iface.addProperty({
@@ -176,69 +178,13 @@ function genObject(
 	if (def.properties) {
 		for (const propKey in def.properties) {
 			const propDef = def.properties[propKey];
-			const propNullable = nullableProps.has(propKey);
 			const req =
 				def.required?.includes(propKey) || (defaultsArePresent && "default" in propDef && propDef.default !== undefined);
-			if (propDef.type === "ref" || propDef.type === "union") {
-				//= propName: External|External
-				const types =
-					propDef.type === "union"
-						? propDef.refs.map((ref) => refToUnionType(ref, lexUri, imports))
-						: [refToType(propDef.ref, stripScheme(stripHash(lexUri)), imports)];
-				if (propDef.type === "union" && !propDef.closed) {
-					types.push("{ $type: string }");
-				}
-				iface.addProperty({
-					name: `${propKey}${req ? "" : "?"}`,
-					type: makeType(types, { nullable: propNullable }),
-				});
-			} else {
-				if (propDef.type === "array") {
-					//= propName: type[]
-					let propAst: PropertySignature;
-					if (propDef.items.type === "ref") {
-						propAst = iface.addProperty({
-							name: `${propKey}${req ? "" : "?"}`,
-							type: makeType(refToType(propDef.items.ref, stripScheme(stripHash(lexUri)), imports), {
-								nullable: propNullable,
-								array: true,
-							}),
-						});
-					} else if (propDef.items.type === "union") {
-						const types = propDef.items.refs.map((ref) => refToUnionType(ref, lexUri, imports));
-						if (!propDef.items.closed) {
-							types.push("{ $type: string }");
-						}
-						propAst = iface.addProperty({
-							name: `${propKey}${req ? "" : "?"}`,
-							type: makeType(types, {
-								nullable: propNullable,
-								array: true,
-							}),
-						});
-					} else {
-						propAst = iface.addProperty({
-							name: `${propKey}${req ? "" : "?"}`,
-							type: makeType(primitiveOrBlobToType(propDef.items), {
-								nullable: propNullable,
-								array: true,
-							}),
-						});
-					}
-					genComment(propAst, propDef);
-				} else {
-					//= propName: type
-					genComment(
-						iface.addProperty({
-							name: `${propKey}${req ? "" : "?"}`,
-							type: makeType(primitiveOrBlobToType(propDef), {
-								nullable: propNullable,
-							}),
-						}),
-						propDef,
-					);
-				}
-			}
+			genObjectProperty(iface, imports, lexUri, {
+				name: `${propKey}${req ? "" : "?"}`,
+				def: propDef,
+				nullable: nullableProps.has(propKey),
+			});
 		}
 
 		if (allowUnknownProperties) {
@@ -249,6 +195,34 @@ function genObject(
 				returnType: "unknown",
 			});
 		}
+	}
+}
+
+type ObjectPropertyDef = NonNullable<LexObject["properties"]>[string];
+
+/** Adds one property to the interface. Only array/primitive properties get a JSDoc comment. */
+function genObjectProperty(
+	iface: InterfaceDeclaration,
+	imports: Set<string>,
+	lexUri: string,
+	{ name, def, nullable }: { name: string; def: ObjectPropertyDef; nullable: boolean },
+) {
+	if (def.type === "ref" || def.type === "union") {
+		//= propName: External|External
+		iface.addProperty({
+			name,
+			type: makeType(refOrUnionToTypes(def, lexUri, imports), { nullable }),
+		});
+	} else if (def.type === "array") {
+		//= propName: type[]
+		const itemTypes =
+			def.items.type === "ref" || def.items.type === "union"
+				? refOrUnionToTypes(def.items, lexUri, imports)
+				: primitiveOrBlobToType(def.items);
+		genComment(iface.addProperty({ name, type: makeType(itemTypes, { nullable, array: true }) }), def);
+	} else {
+		//= propName: type
+		genComment(iface.addProperty({ name, type: makeType(primitiveOrBlobToType(def), { nullable }) }), def);
 	}
 }
 
@@ -271,26 +245,23 @@ export function genToken(file: SourceFile, lexUri: string, def: LexToken) {
 }
 
 export function genArray(file: SourceFile, imports: Set<string>, lexUri: string, def: LexArray) {
+	const name = toTitleCase(getHash(lexUri));
 	if (def.items.type === "ref") {
 		file.addTypeAlias({
-			name: toTitleCase(getHash(lexUri)),
-			type: `${refToType(def.items.ref, stripScheme(stripHash(lexUri)), imports)}[]`,
+			name,
+			type: `${refOrUnionToTypes(def.items, lexUri, imports)[0]}[]`,
 			isExported: true,
 		});
 	} else if (def.items.type === "union") {
-		const types = def.items.refs.map((ref) => refToUnionType(ref, lexUri, imports));
-		if (!def.items.closed) {
-			types.push("{ $type: string }");
-		}
 		file.addTypeAlias({
-			name: toTitleCase(getHash(lexUri)),
-			type: `(${types.join("|")})[]`,
+			name,
+			type: `(${refOrUnionToTypes(def.items, lexUri, imports).join("|")})[]`,
 			isExported: true,
 		});
 	} else {
 		genComment(
 			file.addTypeAlias({
-				name: toTitleCase(getHash(lexUri)),
+				name,
 				type: `${primitiveOrBlobToType(def.items)}[]`,
 				isExported: true,
 			}),
@@ -369,17 +340,9 @@ export function genXrpcInput(
 		if (def.input.schema.type === "ref" || def.input.schema.type === "union") {
 			//= export type InputSchema = ...
 
-			const types =
-				def.input.schema.type === "union"
-					? def.input.schema.refs.map((ref) => refToUnionType(ref, lexUri, imports))
-					: [refToType(def.input.schema.ref, stripScheme(stripHash(lexUri)), imports)];
-
-			if (def.input.schema.type === "union" && !def.input.schema.closed) {
-				types.push("{ $type: string }");
-			}
 			file.addTypeAlias({
 				name: "InputSchema",
-				type: types.join("|"),
+				type: refOrUnionToTypes(def.input.schema, lexUri, imports).join("|"),
 				isExported: true,
 			});
 		} else {
@@ -418,16 +381,9 @@ export function genXrpcOutput(
 	if (schema) {
 		if (schema.type === "ref" || schema.type === "union") {
 			//= export type OutputSchema = ...
-			const types =
-				schema.type === "union"
-					? schema.refs.map((ref) => refToUnionType(ref, lexUri, imports))
-					: [refToType(schema.ref, stripScheme(stripHash(lexUri)), imports)];
-			if (schema.type === "union" && !schema.closed) {
-				types.push("{ $type: string }");
-			}
 			file.addTypeAlias({
 				name: "OutputSchema",
-				type: types.join("|"),
+				type: refOrUnionToTypes(schema, lexUri, imports).join("|"),
 				isExported: true,
 			});
 		} else {
@@ -520,9 +476,25 @@ export function ipldToType(def: LexCidLink | LexBytes) {
 	return "CID";
 }
 
-function refToUnionType(ref: string, lexUri: string, imports: Set<string>): string {
-	const baseNsid = stripScheme(stripHash(lexUri));
-	return `$Typed<${refToType(ref, baseNsid, imports)}>`;
+/** NSID of the lexicon document containing `lexUri` (no scheme, no hash) */
+function baseNsidOf(lexUri: string): string {
+	return stripScheme(stripHash(lexUri));
+}
+
+/**
+ * Type strings for a `ref` (single type) or `union` ($Typed<...> per ref,
+ * plus `{ $type: string }` when the union is open).
+ */
+function refOrUnionToTypes(def: LexRef | LexRefUnion, lexUri: string, imports: Set<string>): string[] {
+	const baseNsid = baseNsidOf(lexUri);
+	if (def.type === "ref") {
+		return [refToType(def.ref, baseNsid, imports)];
+	}
+	const types = def.refs.map((ref) => `$Typed<${refToType(ref, baseNsid, imports)}>`);
+	if (!def.closed) {
+		types.push("{ $type: string }");
+	}
+	return types;
 }
 
 function refToType(ref: string, baseNsid: string, imports: Set<string>): string {

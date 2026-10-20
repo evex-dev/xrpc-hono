@@ -22,33 +22,42 @@ export function readAllLexicons(paths: string[]): LexiconDoc[] {
 }
 
 export function readLexicon(path: string): LexiconDoc {
-	let str: string;
-	let obj: unknown;
+	const obj = parseJsonFile(path, readFile(path));
+	if (obj && typeof obj === "object" && typeof (obj as LexiconDoc).lexicon === "number") {
+		return parseLexicon(path, obj);
+	} else {
+		console.error(`Not lexicon schema`, path);
+		throw new Error(`Not lexicon schema`);
+	}
+}
+
+function readFile(path: string): string {
 	try {
-		str = fs.readFileSync(path, "utf8");
+		return fs.readFileSync(path, "utf8");
 	} catch (e) {
 		console.error(`Failed to read file`, path);
 		throw e;
 	}
+}
+
+function parseJsonFile(path: string, str: string): unknown {
 	try {
-		obj = JSON.parse(str);
+		return JSON.parse(str);
 	} catch (e) {
 		console.error(`Failed to parse JSON in file`, path);
 		throw e;
 	}
-	if (obj && typeof obj === "object" && typeof (obj as LexiconDoc).lexicon === "number") {
-		try {
-			return parseLexiconDoc(obj);
-		} catch (e) {
-			console.error(`Invalid lexicon`, path);
-			if (e instanceof ZodError) {
-				printZodError(e.format());
-			}
-			throw e;
+}
+
+function parseLexicon(path: string, obj: unknown): LexiconDoc {
+	try {
+		return parseLexiconDoc(obj);
+	} catch (e) {
+		console.error(`Invalid lexicon`, path);
+		if (e instanceof ZodError) {
+			printZodError(e.format());
 		}
-	} else {
-		console.error(`Not lexicon schema`, path);
-		throw new Error(`Not lexicon schema`);
+		throw e;
 	}
 }
 

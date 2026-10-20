@@ -133,7 +133,7 @@ export function asPredicate<V extends Validator>(validate: V) {
 `);
 	});
 
-export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
+export const lexiconsTs = (project: Project, lexicons: LexiconDoc[], importExt: string) =>
 	gen(project, "/lexicons.ts", async (file) => {
 		//= import { type LexiconDoc, Lexicons } from '@atproto/lexicon'
 		file
@@ -150,7 +150,7 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 		//= import { is$typed, maybe$typed, type $Typed } from './util'
 		file
 			.addImportDeclaration({
-				moduleSpecifier: "./util.js",
+				moduleSpecifier: `./util${importExt}`,
 			})
 			.addNamedImports([{ name: "$Typed", isTypeOnly: true }, { name: "is$typed" }, { name: "maybe$typed" }]);
 
@@ -195,44 +195,7 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 			],
 		});
 
-		file.addFunction({
-			isExported: true,
-			name: "validate",
-			overloads: [
-				{
-					typeParameters: ["T extends { $type: string }"],
-					parameters: [
-						{ name: "v", type: "unknown" },
-						{ name: "id", type: "string" },
-						{ name: "hash", type: "string" },
-						{ name: "requiredType", type: "true" },
-					],
-					returnType: "ValidationResult<T>",
-				},
-				{
-					typeParameters: ["T extends { $type?: string }"],
-					parameters: [
-						{ name: "v", type: "unknown" },
-						{ name: "id", type: "string" },
-						{ name: "hash", type: "string" },
-						{ name: "requiredType", type: "false", hasQuestionToken: true },
-					],
-					returnType: "ValidationResult<T>",
-				},
-			],
-			parameters: [
-				{ name: "v", type: "unknown" },
-				{ name: "id", type: "string" },
-				{ name: "hash", type: "string" },
-				{ name: "requiredType", type: "boolean", hasQuestionToken: true },
-			],
-			statements: [
-				// If $type is present, make sure it is valid before validating the rest of the object
-				// biome-ignore lint/suspicious/noTemplateCurlyInString: <>
-				"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
-			],
-			returnType: "ValidationResult",
-		});
+		genValidateFn(file);
 
 		//= export const ids = {...}
 		file.addVariableStatement({
@@ -246,6 +209,48 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[]) =>
 			],
 		});
 	});
+
+function genValidateFn(file: SourceFile) {
+	//= export function validate(...) {...} with overloads
+	file.addFunction({
+		isExported: true,
+		name: "validate",
+		overloads: [
+			{
+				typeParameters: ["T extends { $type: string }"],
+				parameters: [
+					{ name: "v", type: "unknown" },
+					{ name: "id", type: "string" },
+					{ name: "hash", type: "string" },
+					{ name: "requiredType", type: "true" },
+				],
+				returnType: "ValidationResult<T>",
+			},
+			{
+				typeParameters: ["T extends { $type?: string }"],
+				parameters: [
+					{ name: "v", type: "unknown" },
+					{ name: "id", type: "string" },
+					{ name: "hash", type: "string" },
+					{ name: "requiredType", type: "false", hasQuestionToken: true },
+				],
+				returnType: "ValidationResult<T>",
+			},
+		],
+		parameters: [
+			{ name: "v", type: "unknown" },
+			{ name: "id", type: "string" },
+			{ name: "hash", type: "string" },
+			{ name: "requiredType", type: "boolean", hasQuestionToken: true },
+		],
+		statements: [
+			// If $type is present, make sure it is valid before validating the rest of the object
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: <>
+			"return (requiredType ? is$typed : maybe$typed)(v, id, hash) ? lexicons.validate(`${id}#${hash}`, v) : { success: false, error: new ValidationError(`Must be an object with \"${hash === 'main' ? id : `${id}#${hash}`}\" $type property`) }",
+		],
+		returnType: "ValidationResult",
+	});
+}
 
 export async function gen(project: Project, path: string, gen: (file: SourceFile) => Promise<void>): Promise<GeneratedFile> {
 	const file = project.createSourceFile(path);
