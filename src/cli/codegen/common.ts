@@ -170,14 +170,15 @@ export const lexiconsTs = (project: Project, lexicons: LexiconDoc[], importExt: 
 			],
 		});
 
-		//= export const schemas = Object.values(schemaDict) satisfies LexiconDoc[]
+		//= export const schemas: LexiconDoc[] = Object.values(schemaDict)
 		file.addVariableStatement({
 			isExported: true,
 			declarationKind: VariableDeclarationKind.Const,
 			declarations: [
 				{
 					name: "schemas",
-					initializer: "Object.values(schemaDict) satisfies LexiconDoc[]",
+					type: "LexiconDoc[]",
+					initializer: "Object.values(schemaDict)",
 				},
 			],
 		});
